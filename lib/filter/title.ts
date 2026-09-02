@@ -11,9 +11,11 @@ const INCLUDE_PATTERNS: RegExp[] = [
   // avoid catching "Head of Recruiting, Engineering & IT"
   /\bhead of .{0,40}?(engineering|applied ai|applied ml|platform|infrastructure|data|ml|ai)\b/i,
   // "Director of Engineering", "Director of X Engineering", "Director, Engineering"
-  /\bdirector[,\s]+(?:of\s+)?[a-z &\-—,]{0,40}engineering\b/i,
-  // "VP, Engineering", "VP of Engineering"
-  /\bvp[,\s]+(?:of\s+)?[a-z &\-—,]{0,20}engineering\b/i,
+  // Slash allowed in filler for "AI/ML Engineering", "DevOps/Platform Engineering"
+  /\bdirector[,\s]+(?:of\s+)?[a-z &\/\-—,]{0,40}engineering\b/i,
+  // "VP, Engineering", "VP of Engineering" — cap matches Director's 40 so multi-word
+  // subdomains like "VP of Platform and Infrastructure Engineering" survive
+  /\bvp[,\s]+(?:of\s+)?[a-z &\/\-—,]{0,40}engineering\b/i,
   // "Manager, Platform Engineering" (comma-flipped) — allow level suffix like
   // "Manager I,", "Manager II,", etc. (Datadog naming convention)
   /\bmanager\b[^,]{0,5},\s*[a-z &\-—]{0,30}engineering\b/i,

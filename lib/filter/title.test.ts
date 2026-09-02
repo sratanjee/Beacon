@@ -19,6 +19,8 @@ const INCLUDES = [
   'Head of Applied AI',
   'VP, Engineering',
   'VP of Engineering',
+  'VP of Platform and Infrastructure Engineering',
+  'Director of AI/ML Engineering',
   'Manager, Platform Engineering',
   'Manager, Software Engineering',
   'Manager I, Engineering - Core Analytics',
