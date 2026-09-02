@@ -1,4 +1,5 @@
 import { NormalizedJob } from './types';
+import { parseComp } from '@/lib/filter/comp';
 
 type AshbyLocation = { location?: string | null };
 
@@ -10,6 +11,8 @@ type AshbyJob = {
   isRemote?: boolean;
   isListed?: boolean;
   secondaryLocations?: AshbyLocation[];
+  descriptionHtml?: string;
+  descriptionPlain?: string;
 };
 
 type AshbyResponse = {
@@ -33,14 +36,16 @@ function normalize(job: AshbyJob): NormalizedJob {
   const parts = [job.location, ...(job.secondaryLocations ?? []).map((s) => s.location)]
     .filter((s): s is string => Boolean(s && s.trim()));
   const location = parts.length ? [...new Set(parts)].join('; ') : null;
+  const { comp_min, comp_max } = parseComp(job.descriptionHtml ?? job.descriptionPlain);
+  const { descriptionHtml: _h, descriptionPlain: _p, ...rawWithoutBody } = job;
   return {
     external_id: job.id,
     title: job.title,
     url: job.jobUrl,
     location,
     remote_ok: typeof job.isRemote === 'boolean' ? job.isRemote : null,
-    comp_min: null,
-    comp_max: null,
-    raw: job,
+    comp_min,
+    comp_max,
+    raw: rawWithoutBody,
   };
 }

@@ -1,4 +1,5 @@
 import { NormalizedJob } from './types';
+import { parseComp } from '@/lib/filter/comp';
 
 type LeverCategories = {
   commitment?: string;
@@ -13,6 +14,10 @@ type LeverPosting = {
   hostedUrl: string;
   categories?: LeverCategories;
   workplaceType?: 'on-site' | 'hybrid' | 'remote' | string;
+  description?: string;
+  descriptionPlain?: string;
+  additional?: string;
+  additionalPlain?: string;
 };
 
 const REMOTE_LOCATION_RE = /\b(remote|anywhere|distributed)\b/i;
@@ -40,14 +45,25 @@ function normalize(job: LeverPosting): NormalizedJob {
         : location
           ? REMOTE_LOCATION_RE.test(location)
           : null;
+  const compText = [job.description, job.descriptionPlain, job.additional, job.additionalPlain]
+    .filter(Boolean)
+    .join(' ');
+  const { comp_min, comp_max } = parseComp(compText);
+  const {
+    description: _d,
+    descriptionPlain: _dp,
+    additional: _a,
+    additionalPlain: _ap,
+    ...rawWithoutBody
+  } = job;
   return {
     external_id: job.id,
     title: job.text,
     url: job.hostedUrl,
     location,
     remote_ok: remote,
-    comp_min: null,
-    comp_max: null,
-    raw: job,
+    comp_min,
+    comp_max,
+    raw: rawWithoutBody,
   };
 }

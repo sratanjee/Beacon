@@ -3,10 +3,11 @@ import { getServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-type SortKey = 'first_seen' | 'company' | 'title' | 'location';
+type SortKey = 'first_seen' | 'company' | 'title' | 'location' | 'comp';
 type SearchParams = {
   company?: string;
   remote?: string;
+  min_comp?: string;
   sort?: SortKey;
   dir?: 'asc' | 'desc';
 };
@@ -17,6 +18,8 @@ type Row = {
   url: string;
   location: string | null;
   remote_ok: boolean | null;
+  comp_min: number | null;
+  comp_max: number | null;
   first_seen_at: string;
   companies: { name: string } | null;
 };
@@ -28,7 +31,18 @@ const SORT_COLUMNS: Record<SortKey, string> = {
   company: 'companies(name)',
   title: 'title',
   location: 'location',
+  comp: 'comp_max',
 };
+
+const HIGH_COMP_THRESHOLD = 300_000;
+
+function formatComp(min: number | null, max: number | null): string {
+  if (min == null && max == null) return '—';
+  const fmt = (n: number) => `$${Math.round(n / 1000)}K`;
+  if (min != null && max != null) return `${fmt(min)}–${fmt(max)}`;
+  if (max != null) return `up to ${fmt(max)}`;
+  return `${fmt(min!)}+`;
+}
 
 function daysAgo(iso: string): number {
   const then = new Date(iso).getTime();
@@ -43,9 +57,11 @@ export default async function Dashboard({
   const params = await searchParams;
   const company = params.company?.trim() || null;
   const remoteOnly = params.remote === '1';
-  const sort: SortKey = (['first_seen', 'company', 'title', 'location'] as const).includes(
-    params.sort as SortKey,
-  )
+  const minComp = params.min_comp ? Number.parseInt(params.min_comp, 10) : null;
+  const validMinComp = minComp && minComp > 0 && minComp < 2_000_000 ? minComp : null;
+  const sort: SortKey = (
+    ['first_seen', 'company', 'title', 'location', 'comp'] as const
+  ).includes(params.sort as SortKey)
     ? (params.sort as SortKey)
     : 'first_seen';
   const dir: 'asc' | 'desc' = params.dir === 'asc' ? 'asc' : 'desc';
@@ -61,14 +77,23 @@ export default async function Dashboard({
 
   let query = db
     .from('jobs')
-    .select('id, title, url, location, remote_ok, first_seen_at, companies!inner(name)')
+    .select(
+      'id, title, url, location, remote_ok, comp_min, comp_max, first_seen_at, companies!inner(name)',
+    )
     .eq('is_active', true)
     .eq('title_matches_role', true);
 
   if (company) query = query.eq('companies.name', company);
   if (remoteOnly) query = query.eq('remote_ok', true);
+  if (validMinComp) query = query.gte('comp_max', validMinComp);
 
-  query = query.order(SORT_COLUMNS[sort], { ascending: dir === 'asc' }).limit(500);
+  // comp sort with nulls last: use two-step ordering
+  if (sort === 'comp') {
+    query = query.order('comp_max', { ascending: dir === 'asc', nullsFirst: false });
+  } else {
+    query = query.order(SORT_COLUMNS[sort], { ascending: dir === 'asc' });
+  }
+  query = query.limit(500);
 
   const jobsRes = await query;
   const rows = (jobsRes.data ?? []) as unknown as Row[];
@@ -115,9 +140,10 @@ export default async function Dashboard({
             <span className="text-zinc-400">/ dashboard</span>
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            {rows.length} of the 460 EM candidates
+            {rows.length} EM candidates
             {company ? ` at ${company}` : ''}
             {remoteOnly ? ', remote only' : ''}
+            {validMinComp ? `, ≥ $${Math.round(validMinComp / 1000)}K comp` : ''}
           </p>
         </div>
       </div>
@@ -154,6 +180,20 @@ export default async function Dashboard({
           />
           <span className="text-zinc-500">Remote only</span>
         </label>
+        <label className="flex items-center gap-2">
+          <span className="text-zinc-500">Min comp</span>
+          <select
+            name="min_comp"
+            defaultValue={validMinComp?.toString() ?? ''}
+            className="rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            <option value="">Any</option>
+            <option value="200000">$200K+</option>
+            <option value="300000">$300K+</option>
+            <option value="400000">$400K+</option>
+            <option value="500000">$500K+</option>
+          </select>
+        </label>
         <button
           type="submit"
           className="rounded bg-zinc-900 px-3 py-1 text-white dark:bg-zinc-100 dark:text-zinc-900"
@@ -175,6 +215,7 @@ export default async function Dashboard({
               <th className="py-2 pr-4 font-medium">{sortLink('title', 'Title')}</th>
               <th className="py-2 pr-4 font-medium">{sortLink('location', 'Location')}</th>
               <th className="py-2 pr-4 font-medium">Remote</th>
+              <th className="py-2 pr-4 font-medium">{sortLink('comp', 'Comp')}</th>
               <th className="py-2 pr-4 font-medium">{sortLink('first_seen', 'First seen')}</th>
               <th className="py-2 pr-4 font-medium"> </th>
             </tr>
@@ -182,7 +223,7 @@ export default async function Dashboard({
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-zinc-500">
+                <td colSpan={7} className="py-8 text-center text-zinc-500">
                   No matches. Clear filters or wait for the next weekly scan.
                 </td>
               </tr>
@@ -206,6 +247,20 @@ export default async function Dashboard({
                   <td className="py-2 pr-4 text-zinc-500">{row.location ?? '—'}</td>
                   <td className="py-2 pr-4 text-zinc-500">
                     {row.remote_ok === true ? 'yes' : row.remote_ok === false ? 'no' : '—'}
+                  </td>
+                  <td className="whitespace-nowrap py-2 pr-4">
+                    <span
+                      className={
+                        (row.comp_max ?? 0) >= HIGH_COMP_THRESHOLD
+                          ? 'font-medium text-emerald-700 dark:text-emerald-400'
+                          : 'text-zinc-500'
+                      }
+                    >
+                      {formatComp(row.comp_min, row.comp_max)}
+                    </span>
+                    {(row.comp_max ?? 0) >= HIGH_COMP_THRESHOLD && (
+                      <span className="ml-1.5 text-[10px]">💎</span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap py-2 pr-4 text-zinc-500">
                     {days === 0 ? 'today' : days === 1 ? '1d ago' : `${days}d ago`}
