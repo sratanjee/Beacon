@@ -3,6 +3,7 @@ import { fetchGreenhouseJobs } from '@/lib/ats/greenhouse';
 import { fetchAshbyJobs } from '@/lib/ats/ashby';
 import { fetchLeverJobs } from '@/lib/ats/lever';
 import { getServiceClient } from '@/lib/supabase/server';
+import { matchesEmRole } from '@/lib/filter/title';
 import type { FetchError, NormalizedJob } from '@/lib/ats/types';
 
 type CompanyRow = {
@@ -111,6 +112,7 @@ async function upsertJobs(company: CompanyRow, jobs: NormalizedJob[]): Promise<n
     comp_max: j.comp_max,
     last_seen_at: now,
     is_active: true,
+    title_matches_role: matchesEmRole(j.title),
     raw: j.raw,
   }));
 
