@@ -14,13 +14,19 @@ const INCLUDE_PATTERNS: RegExp[] = [
   /\bdirector[,\s]+(?:of\s+)?[a-z &\-—,]{0,40}engineering\b/i,
   // "VP, Engineering", "VP of Engineering"
   /\bvp[,\s]+(?:of\s+)?[a-z &\-—,]{0,20}engineering\b/i,
-  // "Manager, Platform Engineering" (comma-flipped)
-  /\bmanager,\s*[a-z &\-—]{0,30}engineering\b/i,
+  // "Manager, Platform Engineering" (comma-flipped) — allow level suffix like
+  // "Manager I,", "Manager II,", etc. (Datadog naming convention)
+  /\bmanager\b[^,]{0,5},\s*[a-z &\-—]{0,30}engineering\b/i,
+  // "Technical Lead Manager" / "Tech Lead Manager" (Uber/Google/OpenAI TLM convention)
+  /\btech(?:nical)? lead manager\b/i,
 ];
 
 const EXCLUDE_PATTERNS: RegExp[] = [
   /\bsales engineer/i,
   /\bfield engineering/i,
+  /\bsolution(?:s)? engineering\b/i, // pre-sales at B2B SaaS (Snowflake, MongoDB)
+  /\btechnical services\b/i,          // customer support / TAM leadership
+  /\bsupport engineering\b/i,
   /\benterprise sales/i,
   /\bproduct manager\b/i,           // spec §5
   /\bmarketing\b/i,                 // spec §5

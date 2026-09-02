@@ -21,6 +21,8 @@ const INCLUDES = [
   'VP of Engineering',
   'Manager, Platform Engineering',
   'Manager, Software Engineering',
+  'Manager I, Engineering - Core Analytics',
+  'Technical Lead Manager - Training Runtime, Data Movement',
   'Senior EM, Growth',
   'Director of Site Reliability Engineering',
 ];
@@ -42,6 +44,8 @@ const EXCLUDES = [
   'Account Executive - GTM Overlay',
   'Compounding Pharmacy Technician',
   'Director, Hardware Reliability Engineering',
+  'Manager, Solution Engineering',
+  'Manager, Technical Services Engineering (Support)',
 ];
 
 describe('matchesEmRole', () => {
