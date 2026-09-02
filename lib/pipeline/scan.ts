@@ -40,23 +40,34 @@ export async function runScan(): Promise<ScanSummary> {
   let jobsSeen = 0;
   let newJobs = 0;
 
-  for (const c of companies ?? []) {
-    const fetcher = c.ats_type ? FETCHERS[c.ats_type] : undefined;
-    if (!fetcher || !c.ats_slug) {
-      errors.push({ company: c.name, error: `no fetcher for ats_type=${c.ats_type}` });
-      continue;
-    }
-    try {
-      const jobs = await fetcher(c.ats_slug);
-      jobsSeen += jobs.length;
-      const inserted = await upsertJobs(c, jobs);
-      newJobs += inserted;
-    } catch (e) {
-      errors.push({
-        company: c.name,
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
+  // Fetch + upsert in parallel batches. Greenhouse ?content=true payloads are
+  // 10-20x larger than the metadata-only endpoint; serial iteration blew past
+  // the 300s Vercel function cap when Anduril's 2,200-job response alone
+  // took ~90s.
+  const BATCH_SIZE = 8;
+  const list = companies ?? [];
+  for (let i = 0; i < list.length; i += BATCH_SIZE) {
+    const batch = list.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (c) => {
+        const fetcher = c.ats_type ? FETCHERS[c.ats_type] : undefined;
+        if (!fetcher || !c.ats_slug) {
+          errors.push({ company: c.name, error: `no fetcher for ats_type=${c.ats_type}` });
+          return;
+        }
+        try {
+          const jobs = await fetcher(c.ats_slug);
+          jobsSeen += jobs.length;
+          const inserted = await upsertJobs(c, jobs);
+          newJobs += inserted;
+        } catch (e) {
+          errors.push({
+            company: c.name,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }),
+    );
   }
 
   const { data: run, error: runErr } = await db

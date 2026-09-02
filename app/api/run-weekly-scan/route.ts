@@ -3,7 +3,7 @@ import { runScan } from '@/lib/pipeline/scan';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 export async function GET(req: NextRequest) {
   return handle(req);

@@ -26,9 +26,17 @@ const INCLUDE_PATTERNS: RegExp[] = [
 const EXCLUDE_PATTERNS: RegExp[] = [
   /\bsales engineer/i,
   /\bfield engineering/i,
-  /\bsolution(?:s)? engineering\b/i, // pre-sales at B2B SaaS (Snowflake, MongoDB)
-  /\btechnical services\b/i,          // customer support / TAM leadership
+  /\bsolution(?:s)? engineering\b/i,       // pre-sales at B2B SaaS (Snowflake, MongoDB)
+  /\btechnical services\b/i,                // customer support / TAM leadership
   /\bsupport engineering\b/i,
+  /\bcustomer engineering\b/i,              // Cloudflare-style pre-sales
+  /\bcustomer success\b/i,                  // CS/CX leadership
+  /\bpresales?\b/i,                         // "Presales Customer Engineering"
+  /\btechnical program manager\b/i,         // TPM — sneaks past include when the
+                                             // last comma-phrase is "..., X Engineering"
+  /\bprogram manager\b/i,
+  /\bproject manager\b/i,
+  /\bTPM\b/,                                // case-sensitive (matches TPM but not "the" etc)
   /\benterprise sales/i,
   /\bproduct manager\b/i,           // spec §5
   /\bmarketing\b/i,                 // spec §5

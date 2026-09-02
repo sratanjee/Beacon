@@ -106,4 +106,16 @@ describe('parseComp', () => {
       comp_max: 322000,
     });
   });
+
+  // Regression: jobs.comp_min/max are INTEGER; decimals broke upserts on
+  // Airbnb/Pinterest/Block/Fastly/MongoDB/Oscar Health (run_id 7, 2026-09-02).
+  it('rounds decimal values to integers', () => {
+    const { comp_min, comp_max } = parseComp(
+      'The base salary range is $191,666.67 to $239,121.50 USD.',
+    );
+    expect(comp_min).toBe(191667);
+    expect(comp_max).toBe(239122);
+    expect(Number.isInteger(comp_min)).toBe(true);
+    expect(Number.isInteger(comp_max)).toBe(true);
+  });
 });

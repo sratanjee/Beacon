@@ -56,7 +56,7 @@ export function parseComp(input: string | null | undefined): CompRange {
     const before = text.slice(Math.max(0, m.index - 60), m.index);
     if (BAD_PREFIX_RE.test(before)) continue;
 
-    figures.push({ value, index: m.index });
+    figures.push({ value: Math.round(value), index: m.index });
   }
 
   if (figures.length === 0) return empty;

@@ -48,6 +48,13 @@ const EXCLUDES = [
   'Director, Hardware Reliability Engineering',
   'Manager, Solution Engineering',
   'Manager, Technical Services Engineering (Support)',
+  'Project Manager, Industrial Engineering',
+  'Sr. Field Technical Program Manager, Forward Deployed Engineering',
+  'Staff Technical Program Manager, Site Reliability Engineering',
+  'Senior Technical Program Manager, Service Engineering',
+  'Manager, Presales Customer Engineering',
+  'Senior Customer Engineering Manager, Majors',
+  'Senior Manager, Customer Success Engineering',
 ];
 
 describe('matchesEmRole', () => {
