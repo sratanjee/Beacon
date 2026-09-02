@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { getServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -48,6 +49,15 @@ export default async function Home() {
           </dd>
         </div>
       </dl>
+
+      <div className="mt-10">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center rounded-full bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        >
+          Open dashboard →
+        </Link>
+      </div>
 
       <p className="mt-14 text-xs text-zinc-400">
         {lastRun
