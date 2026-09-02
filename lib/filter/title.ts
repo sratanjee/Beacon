@@ -30,6 +30,7 @@ const EXCLUDE_PATTERNS: RegExp[] = [
   /\bem[ci]\b/i,                    // EMI/EMC test roles
   /\bsystems test\b/i,
   /\bhardware engineering/i,
+  /\bhardware reliability engineering/i,   // Anduril: hardware discipline, not software EM
   /\bmechanical engineering/i,
   /\belectrical engineering/i,
   /\bpharmacy\b/i,
