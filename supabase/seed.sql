@@ -1,13 +1,8 @@
--- Beacon: initial seed
+-- Beacon: company seed. Probed 2026-09-02 against Greenhouse/Ashby/Lever public
+-- APIs; entries where none returned 200 are marked 'custom' and wait on the
+-- Phase 7 fallback fetcher (search + fetch).
 --
--- This is a starter list of companies with confirmed public ATS endpoints (probed
--- 2026-09-02). Only the greenhouse rows will be scanned in Phase 1 — ashby/lever/
--- custom entries wait for their respective fetchers.
---
--- TODO(sarang): paste in the full Levels.fyi top 50 + Lenny 100 list gathered in
--- the kickoff session. Each row needs: name, ats_type, ats_slug (or ats_url for
--- custom). Rippling was in the spec as greenhouse but its slug 404s — treating it
--- as custom pending confirmation.
+-- Rerunnable: every insert is guarded by `on conflict (lower(name)) do nothing`.
 
 insert into companies (name, ats_type, ats_slug) values
   ('Anduril Industries', 'greenhouse', 'andurilindustries'),
@@ -46,4 +41,173 @@ insert into companies (name, ats_type, ats_url) values
   ('Retool',      'custom', 'https://retool.com/careers'),
   ('Hugging Face','custom', 'https://apply.workable.com/huggingface'),
   ('Scale AI',    'custom', 'https://scale.com/careers')
+on conflict (lower(name)) do nothing;
+-- Extended seed — probed 2026-09-02 against Greenhouse/Ashby/Lever.
+-- Idempotent: rows already inserted by the initial seed are skipped.
+
+-- greenhouse — 56 companies
+insert into companies (name, ats_type, ats_slug) values
+  ('Affirm', 'greenhouse', 'affirm'),
+  ('Airbnb', 'greenhouse', 'airbnb'),
+  ('Airtable', 'greenhouse', 'airtable'),
+  ('Amplitude', 'greenhouse', 'amplitude'),
+  ('Anduril Industries', 'greenhouse', 'andurilindustries'),
+  ('Anthropic', 'greenhouse', 'anthropic'),
+  ('Asana', 'greenhouse', 'asana'),
+  ('Block', 'greenhouse', 'block'),
+  ('Brex', 'greenhouse', 'brex'),
+  ('Chainguard', 'greenhouse', 'chainguard'),
+  ('Chime', 'greenhouse', 'chime'),
+  ('CircleCI', 'greenhouse', 'circleci'),
+  ('Cloudflare', 'greenhouse', 'cloudflare'),
+  ('Coinbase', 'greenhouse', 'coinbase'),
+  ('Contentful', 'greenhouse', 'contentful'),
+  ('Culture Amp', 'greenhouse', 'cultureamp'),
+  ('Databricks', 'greenhouse', 'databricks'),
+  ('Datadog', 'greenhouse', 'datadog'),
+  ('Discord', 'greenhouse', 'discord'),
+  ('Duolingo', 'greenhouse', 'duolingo'),
+  ('Elastic', 'greenhouse', 'elastic'),
+  ('Faire', 'greenhouse', 'faire'),
+  ('Fastly', 'greenhouse', 'fastly'),
+  ('Figma', 'greenhouse', 'figma'),
+  ('GitLab', 'greenhouse', 'gitlab'),
+  ('Grafana Labs', 'greenhouse', 'grafanalabs'),
+  ('Gusto', 'greenhouse', 'gusto'),
+  ('HubSpot', 'greenhouse', 'hubspot'),
+  ('Inflection', 'greenhouse', 'inflectionai'),
+  ('Instacart', 'greenhouse', 'instacart'),
+  ('Intercom', 'greenhouse', 'intercom'),
+  ('Justworks', 'greenhouse', 'justworks'),
+  ('Lattice', 'greenhouse', 'lattice'),
+  ('LaunchDarkly', 'greenhouse', 'launchdarkly'),
+  ('Lyft', 'greenhouse', 'lyft'),
+  ('Mercury', 'greenhouse', 'mercury'),
+  ('Mixpanel', 'greenhouse', 'mixpanel'),
+  ('MongoDB', 'greenhouse', 'mongodb'),
+  ('Netlify', 'greenhouse', 'netlify'),
+  ('Nova Credit', 'greenhouse', 'novacredit'),
+  ('Nubank', 'greenhouse', 'nubank'),
+  ('Oscar Health', 'greenhouse', 'oscar'),
+  ('Pinterest', 'greenhouse', 'pinterest'),
+  ('PlanetScale', 'greenhouse', 'planetscale'),
+  ('Postman', 'greenhouse', 'postman'),
+  ('Reddit', 'greenhouse', 'reddit'),
+  ('Robinhood', 'greenhouse', 'robinhood'),
+  ('Roblox', 'greenhouse', 'roblox'),
+  ('Scale AI', 'greenhouse', 'scaleai'),
+  ('Stripe', 'greenhouse', 'stripe'),
+  ('Together AI', 'greenhouse', 'togetherai'),
+  ('Turing', 'greenhouse', 'turing'),
+  ('Twilio', 'greenhouse', 'twilio'),
+  ('Vercel', 'greenhouse', 'vercel'),
+  ('Waymo', 'greenhouse', 'waymo'),
+  ('Webflow', 'greenhouse', 'webflow')
+on conflict (lower(name)) do nothing;
+
+-- ashby — 43 companies
+insert into companies (name, ats_type, ats_slug) values
+  ('Alchemy', 'ashby', 'alchemy'),
+  ('Anrok', 'ashby', 'anrok'),
+  ('Attio', 'ashby', 'attio'),
+  ('Baseten', 'ashby', 'baseten'),
+  ('BetterUp', 'ashby', 'betterup'),
+  ('Cedar', 'ashby', 'cedar'),
+  ('Character AI', 'ashby', 'character'),
+  ('Circle', 'ashby', 'circle'),
+  ('Cohere', 'ashby', 'cohere'),
+  ('Confluent', 'ashby', 'confluent'),
+  ('Cursor', 'ashby', 'cursor'),
+  ('Deel', 'ashby', 'deel'),
+  ('Drata', 'ashby', 'drata'),
+  ('ElevenLabs', 'ashby', 'elevenlabs'),
+  ('Fireworks AI', 'ashby', 'fireworks'),
+  ('Harvey', 'ashby', 'harvey'),
+  ('Kraken', 'ashby', 'kraken'),
+  ('LangChain', 'ashby', 'langchain'),
+  ('Linear', 'ashby', 'linear'),
+  ('Loom', 'ashby', 'loom'),
+  ('Miro', 'ashby', 'miro'),
+  ('Modal', 'ashby', 'modal'),
+  ('Notion', 'ashby', 'notion'),
+  ('OpenAI', 'ashby', 'openai'),
+  ('Perplexity', 'ashby', 'perplexity'),
+  ('Persona', 'ashby', 'persona'),
+  ('Pika', 'ashby', 'pika'),
+  ('Plaid', 'ashby', 'plaid'),
+  ('Ramp', 'ashby', 'ramp'),
+  ('Replit', 'ashby', 'replit'),
+  ('Rho', 'ashby', 'rho'),
+  ('Runway', 'ashby', 'runway'),
+  ('Sanity', 'ashby', 'sanity'),
+  ('Sentry', 'ashby', 'sentry'),
+  ('Sierra', 'ashby', 'sierra'),
+  ('Snowflake', 'ashby', 'snowflake'),
+  ('Suno', 'ashby', 'suno'),
+  ('Supabase', 'ashby', 'supabase'),
+  ('Temporal', 'ashby', 'temporal'),
+  ('Vanta', 'ashby', 'vanta'),
+  ('Wispr Flow', 'ashby', 'wispr-flow'),
+  ('Zapier', 'ashby', 'zapier'),
+  ('Zip', 'ashby', 'zip')
+on conflict (lower(name)) do nothing;
+
+-- lever — 5 companies
+insert into companies (name, ats_type, ats_slug) values
+  ('Mistral AI', 'lever', 'mistral'),
+  ('Palantir', 'lever', 'palantir'),
+  ('Ro', 'lever', 'ro'),
+  ('Spotify', 'lever', 'spotify'),
+  ('Zoox', 'lever', 'zoox')
+on conflict (lower(name)) do nothing;
+
+-- custom — 47 companies (no public ATS API found)
+insert into companies (name, ats_type) values
+  ('Adept', 'custom'),
+  ('Adobe', 'custom'),
+  ('Alto Pharmacy', 'custom'),
+  ('Amazon', 'custom'),
+  ('Apple', 'custom'),
+  ('Applied Intuition', 'custom'),
+  ('Arc', 'custom'),
+  ('Atlassian', 'custom'),
+  ('Bench', 'custom'),
+  ('Clay', 'custom'),
+  ('Coda', 'custom'),
+  ('Cruise', 'custom'),
+  ('DoorDash', 'custom'),
+  ('Etsy', 'custom'),
+  ('Fly.io', 'custom'),
+  ('GitHub', 'custom'),
+  ('Glean', 'custom'),
+  ('Google', 'custom'),
+  ('Grammarly', 'custom'),
+  ('HashiCorp', 'custom'),
+  ('Hims & Hers', 'custom'),
+  ('Hugging Face', 'custom'),
+  ('Klarna', 'custom'),
+  ('Marqeta', 'custom'),
+  ('Meta', 'custom'),
+  ('Microsoft', 'custom'),
+  ('Monday.com', 'custom'),
+  ('Netflix', 'custom'),
+  ('Nvidia', 'custom'),
+  ('Oracle', 'custom'),
+  ('Pilot', 'custom'),
+  ('Retool', 'custom'),
+  ('Revolut', 'custom'),
+  ('Rippling', 'custom'),
+  ('Rivian', 'custom'),
+  ('Salesforce', 'custom'),
+  ('Segment', 'custom'),
+  ('Slack', 'custom'),
+  ('Snap', 'custom'),
+  ('Superhuman', 'custom'),
+  ('Tesla', 'custom'),
+  ('TikTok', 'custom'),
+  ('Uber', 'custom'),
+  ('Zendesk', 'custom'),
+  ('Wise', 'custom'),
+  ('Zoom', 'custom'),
+  ('xAI', 'custom')
 on conflict (lower(name)) do nothing;

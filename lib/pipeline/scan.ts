@@ -1,5 +1,7 @@
 import 'server-only';
 import { fetchGreenhouseJobs } from '@/lib/ats/greenhouse';
+import { fetchAshbyJobs } from '@/lib/ats/ashby';
+import { fetchLeverJobs } from '@/lib/ats/lever';
 import { getServiceClient } from '@/lib/supabase/server';
 import type { FetchError, NormalizedJob } from '@/lib/ats/types';
 
@@ -8,6 +10,12 @@ type CompanyRow = {
   name: string;
   ats_type: string | null;
   ats_slug: string | null;
+};
+
+const FETCHERS: Record<string, (slug: string) => Promise<NormalizedJob[]>> = {
+  greenhouse: fetchGreenhouseJobs,
+  ashby: fetchAshbyJobs,
+  lever: fetchLeverJobs,
 };
 
 export type ScanSummary = {
@@ -24,7 +32,7 @@ export async function runScan(): Promise<ScanSummary> {
   const { data: companies, error } = await db
     .from('companies')
     .select('id, name, ats_type, ats_slug')
-    .eq('ats_type', 'greenhouse');
+    .in('ats_type', Object.keys(FETCHERS));
   if (error) throw new Error(`Load companies: ${error.message}`);
 
   const errors: FetchError[] = [];
@@ -32,12 +40,13 @@ export async function runScan(): Promise<ScanSummary> {
   let newJobs = 0;
 
   for (const c of companies ?? []) {
-    if (!c.ats_slug) {
-      errors.push({ company: c.name, error: 'missing ats_slug' });
+    const fetcher = c.ats_type ? FETCHERS[c.ats_type] : undefined;
+    if (!fetcher || !c.ats_slug) {
+      errors.push({ company: c.name, error: `no fetcher for ats_type=${c.ats_type}` });
       continue;
     }
     try {
-      const jobs = await fetchGreenhouseJobs(c.ats_slug);
+      const jobs = await fetcher(c.ats_slug);
       jobsSeen += jobs.length;
       const inserted = await upsertJobs(c, jobs);
       newJobs += inserted;
@@ -61,7 +70,6 @@ export async function runScan(): Promise<ScanSummary> {
     .single();
 
   if (runErr) {
-    // Non-fatal: return the summary anyway so the operator can see what happened.
     return {
       run_id: null,
       companies_checked: (companies ?? []).length,
@@ -84,7 +92,6 @@ async function upsertJobs(company: CompanyRow, jobs: NormalizedJob[]): Promise<n
   const db = getServiceClient();
   if (jobs.length === 0) return 0;
 
-  // Snapshot existing external_ids so we can distinguish "new" from "seen again".
   const { data: existing, error: existingErr } = await db
     .from('jobs')
     .select('external_id')
