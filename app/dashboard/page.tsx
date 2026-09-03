@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getServiceClient } from '@/lib/supabase/server';
+import { CompanySummaryCard } from './company-summary-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +85,17 @@ export default async function Dashboard({
     .in('ats_type', ['greenhouse', 'ashby', 'lever'])
     .order('name');
   const companyOptions: CompanyOption[] = (companiesRes.data ?? []) as CompanyOption[];
+
+  // Company-filter summary card (only when a specific company is selected).
+  let companyCard: { id: number; name: string; summary: string | null } | null = null;
+  if (company) {
+    const cardRes = await db
+      .from('companies')
+      .select('id, name, summary')
+      .eq('name', company)
+      .maybeSingle();
+    if (cardRes.data) companyCard = cardRes.data;
+  }
 
   let query = db
     .from('jobs')
@@ -270,6 +282,14 @@ export default async function Dashboard({
         )}
       </form>
 
+      {companyCard && (
+        <CompanySummaryCard
+          companyId={companyCard.id}
+          name={companyCard.name}
+          initialSummary={companyCard.summary}
+        />
+      )}
+
       <div className="mt-8 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
@@ -308,7 +328,12 @@ export default async function Dashboard({
                     )}
                   </td>
                   <td className="py-2 pr-4">
-                    {row.title}
+                    <Link
+                      href={`/jobs/${row.id}`}
+                      className="text-zinc-900 hover:text-blue-600 hover:underline dark:text-zinc-100 dark:hover:text-blue-400"
+                    >
+                      {row.title}
+                    </Link>
                     {isNew && (
                       <span className="ml-2 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
                         new
