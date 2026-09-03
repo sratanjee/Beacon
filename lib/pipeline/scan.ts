@@ -25,6 +25,7 @@ export type ScanSummary = {
   jobs_seen: number;
   new_jobs_found: number;
   errors: FetchError[];
+  scoring?: { scored: number; failed: number; time_budget_hit: boolean } | null;
 };
 
 export async function runScan(): Promise<ScanSummary> {
@@ -70,6 +71,20 @@ export async function runScan(): Promise<ScanSummary> {
     );
   }
 
+  // Score any newly-fetched jobs that match the title filter (best-effort;
+  // failures don't fail the scan itself).
+  let scoringResult: { scored: number; failed: number; time_budget_hit: boolean } | null = null;
+  try {
+    const { runScoring } = await import('@/lib/scoring/run');
+    const r = await runScoring();
+    scoringResult = { scored: r.scored, failed: r.failed, time_budget_hit: r.time_budget_hit };
+  } catch (e) {
+    errors.push({
+      company: '<scoring>',
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   const { data: run, error: runErr } = await db
     .from('fetch_runs')
     .insert({
@@ -88,6 +103,7 @@ export async function runScan(): Promise<ScanSummary> {
       jobs_seen: jobsSeen,
       new_jobs_found: newJobs,
       errors: [...errors, { company: '<fetch_runs insert>', error: runErr.message }],
+      scoring: scoringResult,
     };
   }
 
@@ -97,6 +113,7 @@ export async function runScan(): Promise<ScanSummary> {
     jobs_seen: jobsSeen,
     new_jobs_found: newJobs,
     errors,
+    scoring: scoringResult,
   };
 }
 
