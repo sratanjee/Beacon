@@ -7,6 +7,7 @@ export type NormalizedJob = {
   comp_min: number | null;
   comp_max: number | null;
   raw: unknown;
+  description_text: string | null;
 };
 
 export type FetchResult = {

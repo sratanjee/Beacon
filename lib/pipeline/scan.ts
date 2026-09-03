@@ -124,6 +124,7 @@ async function upsertJobs(company: CompanyRow, jobs: NormalizedJob[]): Promise<n
     last_seen_at: now,
     is_active: true,
     title_matches_role: matchesEmRole(j.title),
+    description_text: j.description_text,
     raw: j.raw,
   }));
 

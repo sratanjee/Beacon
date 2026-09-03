@@ -18,6 +18,21 @@ type GreenhouseResponse = {
   meta?: { total?: number };
 };
 
+function htmlToText(html: string | null | undefined): string | null {
+  if (!html) return null;
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&mdash;|&#8212;/g, '—')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim() || null;
+}
+
 const REMOTE_RE = /\b(remote|anywhere|distributed|work[\s-]?from[\s-]?home)\b/i;
 
 export async function fetchGreenhouseJobs(slug: string): Promise<NormalizedJob[]> {
@@ -51,5 +66,6 @@ function normalize(job: GreenhouseJob): NormalizedJob {
     comp_min,
     comp_max,
     raw: rawWithoutContent,
+    description_text: htmlToText(job.content),
   };
 }

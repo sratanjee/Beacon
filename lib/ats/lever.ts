@@ -1,6 +1,21 @@
 import { NormalizedJob } from './types';
 import { parseComp } from '@/lib/filter/comp';
 
+function htmlToText(html: string | null | undefined): string | null {
+  if (!html) return null;
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&mdash;|&#8212;/g, '—')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim() || null;
+}
+
 type LeverCategories = {
   commitment?: string;
   location?: string;
@@ -65,5 +80,9 @@ function normalize(job: LeverPosting): NormalizedJob {
     comp_min,
     comp_max,
     raw: rawWithoutBody,
+    description_text:
+      job.descriptionPlain?.trim() ||
+      (job.additionalPlain?.trim() ? job.additionalPlain.trim() : null) ||
+      htmlToText([job.description, job.additional].filter(Boolean).join(' ')),
   };
 }

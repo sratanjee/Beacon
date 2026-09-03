@@ -1,6 +1,21 @@
 import { NormalizedJob } from './types';
 import { parseComp } from '@/lib/filter/comp';
 
+function htmlToText(html: string | null | undefined): string | null {
+  if (!html) return null;
+  return html
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&mdash;|&#8212;/g, '—')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim() || null;
+}
+
 type AshbyLocation = { location?: string | null };
 
 type AshbyJob = {
@@ -47,5 +62,6 @@ function normalize(job: AshbyJob): NormalizedJob {
     comp_min,
     comp_max,
     raw: rawWithoutBody,
+    description_text: job.descriptionPlain?.trim() || htmlToText(job.descriptionHtml),
   };
 }
