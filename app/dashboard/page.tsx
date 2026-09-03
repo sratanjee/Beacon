@@ -3,12 +3,13 @@ import { getServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-type SortKey = 'first_seen' | 'company' | 'title' | 'location' | 'comp';
+type SortKey = 'first_seen' | 'company' | 'title' | 'location' | 'comp' | 'fit';
 type SearchParams = {
   company?: string;
   remote?: string;
   min_comp?: string;
   ai?: string;
+  great_fit?: string;
   sort?: SortKey;
   dir?: 'asc' | 'desc';
 };
@@ -23,6 +24,7 @@ type Row = {
   comp_max: number | null;
   first_seen_at: string;
   companies: { name: string; notable_lists: string[] | null } | null;
+  fit_scores: Array<{ overall_score: number | null; rationale: string | null }> | null;
 };
 
 type CompanyOption = { name: string };
@@ -33,6 +35,7 @@ const SORT_COLUMNS: Record<SortKey, string> = {
   title: 'title',
   location: 'location',
   comp: 'comp_max',
+  fit: 'fit_scores(overall_score)',
 };
 
 const HIGH_COMP_THRESHOLD = 300_000;
@@ -58,16 +61,22 @@ export default async function Dashboard({
   const company = params.company?.trim() || null;
   const remoteOnly = params.remote === '1';
   const aiOnly = params.ai === '1';
+  const greatFitOnly = params.great_fit === '1';
   const minComp = params.min_comp ? Number.parseInt(params.min_comp, 10) : null;
   const validMinComp = minComp && minComp > 0 && minComp < 2_000_000 ? minComp : null;
-  const sort: SortKey = (
-    ['first_seen', 'company', 'title', 'location', 'comp'] as const
-  ).includes(params.sort as SortKey)
-    ? (params.sort as SortKey)
-    : 'first_seen';
-  const dir: 'asc' | 'desc' = params.dir === 'asc' ? 'asc' : 'desc';
 
   const db = getServiceClient();
+
+  const profileRes = await db.from('profiles').select('id').eq('id', 1).maybeSingle();
+  const hasResume = !!profileRes.data;
+
+  const validSorts = ['first_seen', 'company', 'title', 'location', 'comp', 'fit'] as const;
+  const sort: SortKey = (validSorts as readonly string[]).includes(params.sort ?? '')
+    ? (params.sort as SortKey)
+    : hasResume
+      ? 'fit'
+      : 'first_seen';
+  const dir: 'asc' | 'desc' = params.dir === 'asc' ? 'asc' : 'desc';
 
   const companiesRes = await db
     .from('companies')
@@ -79,7 +88,7 @@ export default async function Dashboard({
   let query = db
     .from('jobs')
     .select(
-      'id, title, url, location, remote_ok, comp_min, comp_max, first_seen_at, companies!inner(name, notable_lists)',
+      'id, title, url, location, remote_ok, comp_min, comp_max, first_seen_at, companies!inner(name, notable_lists), fit_scores!left(overall_score, rationale)',
     )
     .eq('is_active', true)
     .eq('title_matches_role', true);
@@ -88,9 +97,12 @@ export default async function Dashboard({
   if (aiOnly) query = query.contains('companies.notable_lists', ['top_ai']);
   if (remoteOnly) query = query.eq('remote_ok', true);
   if (validMinComp) query = query.gte('comp_max', validMinComp);
+  if (greatFitOnly) query = query.gte('fit_scores.overall_score', 70);
 
   if (sort === 'comp') {
     query = query.order('comp_max', { ascending: dir === 'asc', nullsFirst: false });
+  } else if (sort === 'fit') {
+    query = query.order('fit_scores(overall_score)', { ascending: dir === 'asc', nullsFirst: false });
   } else {
     query = query.order(SORT_COLUMNS[sort], { ascending: dir === 'asc' });
   }
@@ -107,6 +119,7 @@ export default async function Dashboard({
     if (remoteOnly) sp.set('remote', '1');
     if (aiOnly) sp.set('ai', '1');
     if (validMinComp) sp.set('min_comp', validMinComp.toString());
+    if (greatFitOnly) sp.set('great_fit', '1');
     sp.set('sort', sort);
     sp.set('dir', dir);
     for (const [k, v] of Object.entries(next)) {
@@ -151,6 +164,16 @@ export default async function Dashboard({
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
+              href={linkFor({ great_fit: greatFitOnly ? '' : '1' })}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                greatFitOnly
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+              }`}
+            >
+              🎯 Great fit
+            </Link>
+            <Link
               href={linkFor({ ai: aiOnly ? '' : '1' })}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 aiOnly
@@ -194,6 +217,7 @@ export default async function Dashboard({
         <input type="hidden" name="sort" value={sort} />
         <input type="hidden" name="dir" value={dir} />
         {aiOnly && <input type="hidden" name="ai" value="1" />}
+        {greatFitOnly && <input type="hidden" name="great_fit" value="1" />}
         <label className="flex items-center gap-2">
           <span className="text-zinc-500">Company</span>
           <select
@@ -239,7 +263,7 @@ export default async function Dashboard({
         >
           Apply
         </button>
-        {(company || remoteOnly || validMinComp || aiOnly) && (
+        {(company || remoteOnly || validMinComp || aiOnly || greatFitOnly) && (
           <Link href={`/dashboard?sort=${sort}&dir=${dir}`} className="text-zinc-500 underline">
             Clear
           </Link>
@@ -254,6 +278,7 @@ export default async function Dashboard({
               <th className="py-2 pr-4 font-medium">{sortLink('title', 'Title')}</th>
               <th className="py-2 pr-4 font-medium">{sortLink('location', 'Location')}</th>
               <th className="py-2 pr-4 font-medium">Remote</th>
+              <th className="py-2 pr-4 font-medium">{sortLink('fit', 'Fit')}</th>
               <th className="py-2 pr-4 font-medium">{sortLink('comp', 'Comp')}</th>
               <th className="py-2 pr-4 font-medium">{sortLink('first_seen', 'First seen')}</th>
               <th className="py-2 pr-4 font-medium"> </th>
@@ -262,7 +287,7 @@ export default async function Dashboard({
           <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-zinc-500">
+                <td colSpan={8} className="py-8 text-center text-zinc-500">
                   No matches. Clear filters or wait for the next weekly scan.
                 </td>
               </tr>
@@ -293,6 +318,24 @@ export default async function Dashboard({
                   <td className="py-2 pr-4 text-zinc-500">{row.location ?? '—'}</td>
                   <td className="py-2 pr-4 text-zinc-500">
                     {row.remote_ok === true ? 'yes' : row.remote_ok === false ? 'no' : '—'}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {(() => {
+                      const fs = row.fit_scores?.[0];
+                      const s = fs?.overall_score;
+                      if (s == null) return <span className="text-zinc-400">—</span>;
+                      const color =
+                        s >= 70
+                          ? 'font-semibold text-emerald-700 dark:text-emerald-400'
+                          : s >= 40
+                            ? 'text-zinc-700 dark:text-zinc-300'
+                            : 'text-zinc-400';
+                      return (
+                        <span className={color} title={fs?.rationale ?? undefined}>
+                          {s}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="whitespace-nowrap py-2 pr-4">
                     <span
