@@ -5,7 +5,7 @@ import { AUTH_COOKIE, verifyCookie } from '@/lib/auth/cookie';
 const PUBLIC_PATHS = new Set(['/login']);
 const PUBLIC_PATH_PREFIXES = ['/api/login', '/api/run-weekly-scan'];
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
@@ -18,7 +18,7 @@ export function middleware(req: NextRequest) {
   }
 
   const cookie = req.cookies.get(AUTH_COOKIE)?.value;
-  if (verifyCookie(cookie, site)) return NextResponse.next();
+  if (await verifyCookie(cookie, site)) return NextResponse.next();
 
   const next = pathname + req.nextUrl.search;
   return NextResponse.redirect(

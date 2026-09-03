@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   // Only allow same-origin redirects
   const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
   const res = NextResponse.redirect(new URL(safeNext, req.url));
-  res.cookies.set(AUTH_COOKIE, signPassword(site), {
+  res.cookies.set(AUTH_COOKIE, await signPassword(site), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
