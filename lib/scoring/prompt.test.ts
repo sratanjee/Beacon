@@ -12,6 +12,18 @@ describe('buildSystemPrompt', () => {
     const p = buildSystemPrompt('r');
     expect(p.toLowerCase()).toContain('json');
   });
+
+  it('includes positioning statement when provided', () => {
+    const p = buildSystemPrompt('resume', 'Growth EM with AI focus');
+    expect(p).toContain('POSITIONING');
+    expect(p).toContain('Growth EM with AI focus');
+  });
+
+  it('omits positioning block when not provided or empty', () => {
+    expect(buildSystemPrompt('r')).not.toContain('POSITIONING');
+    expect(buildSystemPrompt('r', '')).not.toContain('POSITIONING');
+    expect(buildSystemPrompt('r', '   ')).not.toContain('POSITIONING');
+  });
 });
 
 describe('buildUserPrompt', () => {

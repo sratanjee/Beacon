@@ -1,9 +1,12 @@
-export function buildSystemPrompt(resumeText: string): string {
+export function buildSystemPrompt(resumeText: string, positioning?: string | null): string {
+  const positioningBlock = positioning?.trim()
+    ? `\n\nCANDIDATE POSITIONING (how they want to be seen; the resume is proof, this is the frame — weight scoring accordingly):\n${positioning.trim()}\n`
+    : '';
   return `You are a career-fit evaluator. You'll receive job postings and score each one against the candidate's resume on a 0-100 scale across three dimensions, then produce a composite overall score.
 
-Weight the composite score heavily on domain_proximity (does the role's actual work match what this person has done and is good at?), then seniority_match, then comp_signal.
+Weight the composite score heavily on domain_proximity (does the role's actual work match what this person has done and is good at, given both their history and stated positioning?), then seniority_match, then comp_signal.
 
-Return JSON only, no markdown fences, no commentary.
+Return JSON only, no markdown fences, no commentary.${positioningBlock}
 
 CANDIDATE RESUME:
 ${resumeText}`;

@@ -30,16 +30,17 @@ type ScoreResponse = {
 const BATCH_SIZE = 5;
 const SOFT_BUDGET_MS = 720_000; // 12 minutes of the 13.3 min maxDuration
 
-export async function runScoring(): Promise<ScoringSummary> {
+export async function runScoring(options: { force?: boolean } = {}): Promise<ScoringSummary> {
   const startedAt = Date.now();
   const db = getServiceClient();
 
   const profileRes = await db
     .from('profiles')
-    .select('resume_text')
+    .select('resume_text, positioning')
     .eq('id', 1)
     .maybeSingle();
   const resumeText = profileRes.data?.resume_text?.trim();
+  const positioning = profileRes.data?.positioning?.trim() || null;
   if (!resumeText) {
     return { scored: 0, failed: 0, skipped_no_resume: true, time_budget_hit: false, errors: [] };
   }
@@ -51,7 +52,13 @@ export async function runScoring(): Promise<ScoringSummary> {
     apiKey: key,
     defaultHeaders: workspaceId ? { 'anthropic-workspace-id': workspaceId } : undefined,
   });
-  const systemPrompt = buildSystemPrompt(resumeText);
+  const systemPrompt = buildSystemPrompt(resumeText, positioning);
+
+  // With force=true, wipe existing fit_scores so all EM candidates get re-scored
+  // against the fresh resume/positioning context.
+  if (options.force) {
+    await db.from('fit_scores').delete().gt('job_id', 0);
+  }
 
   // Pull unscored EM candidates. LEFT-JOIN fit_scores and filter to nulls.
   const unscoredRes = await db

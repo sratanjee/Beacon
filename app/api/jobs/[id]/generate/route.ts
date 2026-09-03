@@ -67,7 +67,7 @@ export async function POST(
 
   const profileRes = await db
     .from('profiles')
-    .select('resume_text')
+    .select('resume_text, positioning')
     .eq('id', 1)
     .maybeSingle();
   const resumeText = profileRes.data?.resume_text?.trim();
@@ -84,13 +84,14 @@ export async function POST(
     location: job.location,
     description_text: job.description_text,
   };
+  const profile = { resumeText, positioning: profileRes.data?.positioning ?? null };
 
   let result;
   try {
     result =
       kind === 'cover_letter'
-        ? await generateCoverLetter(ctx, resumeText)
-        : await generateTailoredResume(ctx, resumeText);
+        ? await generateCoverLetter(ctx, profile)
+        : await generateTailoredResume(ctx, profile);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },

@@ -3,12 +3,17 @@ import { getServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-type Profile = { resume_pdf_path: string | null; resume_text: string | null; updated_at: string } | null;
+type Profile = {
+  resume_pdf_path: string | null;
+  resume_text: string | null;
+  positioning: string | null;
+  updated_at: string;
+} | null;
 
 export default async function ResumePage() {
   const db = getServiceClient();
   const [profileRes, _jobCountsRes] = await Promise.all([
-    db.from('profiles').select('resume_pdf_path, resume_text, updated_at').eq('id', 1).maybeSingle(),
+    db.from('profiles').select('resume_pdf_path, resume_text, positioning, updated_at').eq('id', 1).maybeSingle(),
     db.rpc('phase3_scored_counts').select().maybeSingle().then(
       (r) => r,
       () => ({ data: null, error: null }),
@@ -69,6 +74,35 @@ export default async function ResumePage() {
       </section>
 
       <section className="mt-6 rounded border border-zinc-200 p-6 dark:border-zinc-800">
+        <h2 className="text-lg font-medium">Positioning</h2>
+        <p className="mt-1 text-sm text-zinc-500">
+          A 2-3 sentence frame for how you want to be positioned. Read by every scoring call and every generated cover letter / tailored resume alongside your resume. Change it and hit <em>Save</em>, then click <em>Re-score all</em> to re-rank the 449 candidates against the new framing.
+        </p>
+        <form method="post" action="/api/positioning" className="mt-3">
+          <textarea
+            name="positioning"
+            rows={4}
+            placeholder="e.g. Growth Engineering Manager, specializing in taking small teams to their next stage. Focus on integrating AI into engineering workflows to compress cycle time while preserving quality gates end-to-end."
+            defaultValue={profile?.positioning ?? ''}
+            className="w-full rounded border border-zinc-300 bg-white p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              type="submit"
+              className="rounded bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+            >
+              Save positioning
+            </button>
+            {profile?.positioning && (
+              <span className="text-xs text-zinc-500">
+                Currently: {profile.positioning.length} chars
+              </span>
+            )}
+          </div>
+        </form>
+      </section>
+
+      <section className="mt-6 rounded border border-zinc-200 p-6 dark:border-zinc-800">
         <h2 className="text-lg font-medium">Status</h2>
         <dl className="mt-3 grid grid-cols-2 gap-4 text-sm">
           <div>
@@ -86,15 +120,27 @@ export default async function ResumePage() {
             </dd>
           </div>
         </dl>
-        {profile?.resume_text && scored < total && (
-          <form method="post" action="/api/score-all" className="mt-4">
-            <button
-              type="submit"
-              className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white"
-            >
-              Score all {total - scored} unscored
-            </button>
-          </form>
+        {profile?.resume_text && (
+          <div className="mt-4 flex flex-wrap gap-3">
+            {scored < total && (
+              <form method="post" action="/api/score-all">
+                <button
+                  type="submit"
+                  className="rounded bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white"
+                >
+                  Score all {total - scored} unscored
+                </button>
+              </form>
+            )}
+            <form method="post" action="/api/score-all?force=1">
+              <button
+                type="submit"
+                className="rounded border border-emerald-600 px-3 py-1.5 text-sm font-medium text-emerald-700 dark:text-emerald-400"
+              >
+                Re-score all {total} (force)
+              </button>
+            </form>
+          </div>
         )}
       </section>
     </main>
