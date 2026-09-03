@@ -60,16 +60,26 @@ export async function runScoring(options: { force?: boolean } = {}): Promise<Sco
     await db.from('fit_scores').delete().gt('job_id', 0);
   }
 
-  // Pull unscored EM candidates. LEFT-JOIN fit_scores and filter to nulls.
-  const unscoredRes = await db
-    .from('jobs')
-    .select('id, title, location, description_text, companies!inner(name), fit_scores!left(job_id)')
-    .eq('is_active', true)
-    .eq('title_matches_role', true)
-    .is('fit_scores.job_id', null)
-    .limit(1000);
-  if (unscoredRes.error) throw new Error(`load unscored: ${unscoredRes.error.message}`);
-  const jobs = (unscoredRes.data ?? []) as unknown as UnscoredJob[];
+  // Pull unscored EM candidates. PostgREST applies `.is(joined_table.field, null)`
+  // to the JOIN side (which fit_scores rows to include), not the parent WHERE
+  // clause, so we can't use that pattern to filter jobs. Do it in two queries
+  // + set-difference client-side. Cheap: both queries return only IDs plus a
+  // few columns.
+  const [emRes, scoredRes] = await Promise.all([
+    db
+      .from('jobs')
+      .select('id, title, location, description_text, companies!inner(name)')
+      .eq('is_active', true)
+      .eq('title_matches_role', true)
+      .limit(1000),
+    db.from('fit_scores').select('job_id'),
+  ]);
+  if (emRes.error) throw new Error(`load EM candidates: ${emRes.error.message}`);
+  if (scoredRes.error) throw new Error(`load scored ids: ${scoredRes.error.message}`);
+  const scoredIds = new Set((scoredRes.data ?? []).map((r) => r.job_id));
+  const jobs = ((emRes.data ?? []) as unknown as UnscoredJob[]).filter(
+    (j) => !scoredIds.has(j.id),
+  );
 
   const errors: { job_id: number; error: string }[] = [];
   let scored = 0;
