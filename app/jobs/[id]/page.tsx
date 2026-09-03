@@ -23,6 +23,7 @@ type JobRow = {
     comp_signal: string | null;
     rationale: string | null;
   }> | null;
+  job_states: Array<{ is_saved: boolean | null; applied_at: string | null }> | null;
 };
 
 type GeneratedDoc = { text: string; generated_at: string; model: string };
@@ -50,7 +51,8 @@ export default async function JobDetail({
     .select(
       'id, title, url, location, remote_ok, comp_min, comp_max, first_seen_at, description_text, ' +
         'companies!inner(id, name, notable_lists), ' +
-        'fit_scores!left(overall_score, domain_proximity_score, seniority_match_score, comp_signal, rationale)',
+        'fit_scores!left(overall_score, domain_proximity_score, seniority_match_score, comp_signal, rationale), ' +
+        'job_states!left(is_saved, applied_at)',
     )
     .eq('id', jobId)
     .maybeSingle();
@@ -75,6 +77,10 @@ export default async function JobDetail({
   const resume: GeneratedDoc | null = resumeRes.data ?? null;
 
   const fit = job.fit_scores?.[0];
+  const state = job.job_states?.[0];
+  const isSaved = !!state?.is_saved;
+  const isApplied = !!state?.applied_at;
+  const returnTo = `/jobs/${jobId}`;
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
@@ -131,6 +137,41 @@ export default async function JobDetail({
           {fit.rationale}
         </blockquote>
       )}
+
+      <div className="mt-6 flex flex-wrap items-center gap-3 no-print">
+        <form method="post" action={`/api/jobs/${jobId}/state`}>
+          <input type="hidden" name="return_to" value={returnTo} />
+          <button
+            type="submit"
+            name="action"
+            value="toggle_save"
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              isSaved
+                ? 'bg-rose-600 text-white'
+                : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+            }`}
+          >
+            {isSaved ? '★ Saved' : '☆ Save'}
+          </button>
+        </form>
+        <form method="post" action={`/api/jobs/${jobId}/state`}>
+          <input type="hidden" name="return_to" value={returnTo} />
+          <button
+            type="submit"
+            name="action"
+            value={isApplied ? 'unmark_applied' : 'mark_applied'}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              isApplied
+                ? 'bg-teal-600 text-white'
+                : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+            }`}
+          >
+            {isApplied
+              ? `✓ Applied ${state?.applied_at?.slice(0, 10)}`
+              : '✓ Mark applied'}
+          </button>
+        </form>
+      </div>
 
       <GenerateSection
         jobId={jobId}

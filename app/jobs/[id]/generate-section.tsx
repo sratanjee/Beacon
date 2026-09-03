@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Doc = { text: string; generated_at: string; model: string };
 
@@ -104,9 +106,33 @@ function ArtifactPanel({
         </p>
       )}
       {doc ? (
-        <pre className="whitespace-pre-wrap px-4 py-4 text-sm text-zinc-700 dark:text-zinc-300">
-          {doc.text}
-        </pre>
+        <div className="doc-prose px-6 py-6 text-[15px] text-zinc-800 dark:text-zinc-200">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              h1: ({ children }) => (
+                <h1 className="text-2xl font-bold tracking-tight">{children}</h1>
+              ),
+              h2: ({ children }) => (
+                <h2 className="mt-6 border-b border-zinc-200 pb-1 text-sm font-semibold uppercase tracking-wide text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+                  {children}
+                </h2>
+              ),
+              h3: ({ children }) => (
+                <h3 className="mt-4 text-base font-semibold">{children}</h3>
+              ),
+              p: ({ children }) => <p className="mt-2 leading-relaxed">{children}</p>,
+              ul: ({ children }) => (
+                <ul className="mt-2 list-disc space-y-1 pl-6 leading-relaxed">{children}</ul>
+              ),
+              li: ({ children }) => <li>{children}</li>,
+              strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+              em: ({ children }) => <em className="italic">{children}</em>,
+            }}
+          >
+            {doc.text}
+          </ReactMarkdown>
+        </div>
       ) : (
         <p className="px-4 py-8 text-center text-sm text-zinc-500">
           Not generated yet. Click generate — takes ~10s and costs ~$0.02.

@@ -32,7 +32,9 @@ export async function generateCoverLetter(
   job: JobContext,
   resumeText: string,
 ): Promise<GenerationResult> {
-  const system = `You are helping a senior engineering manager (currently at Axon, building safety tech) draft a targeted cover letter for a specific job. Your voice is direct, specific, and confident without being braggy. No fluff, no cliches ("thrilled", "passionate", "team player"). Reference specific things in the job posting — the exact team, product surface, or challenge — and connect each to a specific thing the candidate has actually done per the resume. Do not invent experience the resume doesn't support. Structure: opening hook (why this role, this company), 2 middle paragraphs (each anchored to a specific job requirement matched to a specific resume moment), close (concrete next step). ~350-400 words. Plain text, no markdown, no header line naming the recipient.
+  const system = `You are helping a senior engineering manager (currently at Axon, building safety tech) draft a targeted cover letter for a specific job. Your voice is direct, specific, and confident without being braggy. No fluff, no cliches ("thrilled", "passionate", "team player"). Reference specific things in the job posting — the exact team, product surface, or challenge — and connect each to a specific thing the candidate has actually done per the resume. Do not invent experience the resume doesn't support. Structure: opening hook (why this role, this company), 2 middle paragraphs (each anchored to a specific job requirement matched to a specific resume moment), close (concrete next step). ~350-400 words.
+
+Format as Markdown. Start with the candidate's name as a heading-1 (# Name) on line 1, then contact info line, then blank line, then the letter body as regular paragraphs. Use bold syntax (double-asterisks) sparingly to emphasize the 2-3 most important claims (specific numbers, company names, or technical terms that match the posting). No bullets in the body — flowing paragraphs.
 
 CANDIDATE RESUME:
 ${resumeText}`;
@@ -71,7 +73,12 @@ export async function generateTailoredResume(
 3. You may LIGHTLY rewrite bullet wording to use vocabulary that mirrors the job posting (e.g. if posting says "distributed systems" and resume says "backend infra", swap language — but only when the swap is truthful).
 4. Preserve the original resume's structure (Summary → Experience → Education → Skills, or whatever order the original uses).
 5. Include the candidate's contact info verbatim from the original.
-6. Output as plain text formatted like a real resume — no markdown fences, no meta-commentary, no explanation of what you changed.
+6. Output as Markdown formatted like a real resume:
+   - Line 1: heading-1 with the candidate's name (# Name)
+   - Line 2: contact info (email, phone, LinkedIn)
+   - Section headings as heading-2 (## Summary, ## Experience, etc.)
+   - Each role: heading-3 with company name, then a line with bold title and dates, then bullets prefixed with "- "
+   - No code fences, no explanations, no meta-commentary
 7. Aim for 1-page density — that means cutting ~30% of the original if it's long.
 
 CANDIDATE'S ORIGINAL RESUME:

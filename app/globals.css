@@ -24,3 +24,30 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Print styles — used when Sarang prints /jobs/[id] to save as PDF and attach. */
+@media print {
+  @page {
+    size: letter;
+    margin: 0.6in;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+  /* Hide chrome; only the .doc-prose blocks should print. */
+  header, nav, form, dl, blockquote, details, footer,
+  .no-print, button, [role="button"] {
+    display: none !important;
+  }
+  .doc-prose {
+    page-break-inside: avoid;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  .doc-prose + .doc-prose {
+    page-break-before: always;
+  }
+}

@@ -11,6 +11,8 @@ type SearchParams = {
   min_comp?: string;
   ai?: string;
   great_fit?: string;
+  saved?: string;
+  applied?: string;
   sort?: SortKey;
   dir?: 'asc' | 'desc';
 };
@@ -26,6 +28,7 @@ type Row = {
   first_seen_at: string;
   companies: { name: string; notable_lists: string[] | null } | null;
   fit_scores: Array<{ overall_score: number | null; rationale: string | null }> | null;
+  job_states: Array<{ is_saved: boolean | null; applied_at: string | null }> | null;
 };
 
 type CompanyOption = { name: string };
@@ -63,6 +66,8 @@ export default async function Dashboard({
   const remoteOnly = params.remote === '1';
   const aiOnly = params.ai === '1';
   const greatFitOnly = params.great_fit === '1';
+  const savedOnly = params.saved === '1';
+  const appliedFilter = params.applied === '1' ? 'yes' : params.applied === '0' ? 'no' : null;
   const minComp = params.min_comp ? Number.parseInt(params.min_comp, 10) : null;
   const validMinComp = minComp && minComp > 0 && minComp < 2_000_000 ? minComp : null;
 
@@ -100,7 +105,10 @@ export default async function Dashboard({
   let query = db
     .from('jobs')
     .select(
-      'id, title, url, location, remote_ok, comp_min, comp_max, first_seen_at, companies!inner(name, notable_lists), fit_scores!left(overall_score, rationale)',
+      'id, title, url, location, remote_ok, comp_min, comp_max, first_seen_at, ' +
+        'companies!inner(name, notable_lists), ' +
+        'fit_scores!left(overall_score, rationale), ' +
+        'job_states!left(is_saved, applied_at)',
     )
     .eq('is_active', true)
     .eq('title_matches_role', true);
@@ -110,6 +118,9 @@ export default async function Dashboard({
   if (remoteOnly) query = query.eq('remote_ok', true);
   if (validMinComp) query = query.gte('comp_max', validMinComp);
   if (greatFitOnly) query = query.gte('fit_scores.overall_score', 70);
+  if (savedOnly) query = query.eq('job_states.is_saved', true);
+  if (appliedFilter === 'yes') query = query.not('job_states.applied_at', 'is', null);
+  if (appliedFilter === 'no') query = query.is('job_states.applied_at', null);
 
   if (sort === 'comp') {
     query = query.order('comp_max', { ascending: dir === 'asc', nullsFirst: false });
@@ -132,6 +143,8 @@ export default async function Dashboard({
     if (aiOnly) sp.set('ai', '1');
     if (validMinComp) sp.set('min_comp', validMinComp.toString());
     if (greatFitOnly) sp.set('great_fit', '1');
+    if (savedOnly) sp.set('saved', '1');
+    if (appliedFilter) sp.set('applied', appliedFilter === 'yes' ? '1' : '0');
     sp.set('sort', sort);
     sp.set('dir', dir);
     for (const [k, v] of Object.entries(next)) {
@@ -140,6 +153,22 @@ export default async function Dashboard({
     }
     return `/dashboard?${sp.toString()}`;
   };
+
+  const currentUrl = `/dashboard?${new URLSearchParams(
+    Object.fromEntries(
+      Object.entries({
+        company: company ?? '',
+        remote: remoteOnly ? '1' : '',
+        ai: aiOnly ? '1' : '',
+        min_comp: validMinComp?.toString() ?? '',
+        great_fit: greatFitOnly ? '1' : '',
+        saved: savedOnly ? '1' : '',
+        applied: appliedFilter === 'yes' ? '1' : appliedFilter === 'no' ? '0' : '',
+        sort,
+        dir,
+      }).filter(([, v]) => v !== ''),
+    ),
+  ).toString()}`;
 
   const sortLink = (key: SortKey, label: string) => {
     const active = sort === key;
@@ -175,6 +204,26 @@ export default async function Dashboard({
             {validMinComp ? `, ≥ $${Math.round(validMinComp / 1000)}K comp` : ''}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
+            <Link
+              href={linkFor({ saved: savedOnly ? '' : '1' })}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                savedOnly
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+              }`}
+            >
+              ★ Saved
+            </Link>
+            <Link
+              href={linkFor({ applied: appliedFilter === 'yes' ? '' : '1' })}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                appliedFilter === 'yes'
+                  ? 'bg-teal-600 text-white'
+                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+              }`}
+            >
+              ✓ Applied
+            </Link>
             <Link
               href={linkFor({ great_fit: greatFitOnly ? '' : '1' })}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
@@ -275,7 +324,7 @@ export default async function Dashboard({
         >
           Apply
         </button>
-        {(company || remoteOnly || validMinComp || aiOnly || greatFitOnly) && (
+        {(company || remoteOnly || validMinComp || aiOnly || greatFitOnly || savedOnly || appliedFilter) && (
           <Link href={`/dashboard?sort=${sort}&dir=${dir}`} className="text-zinc-500 underline">
             Clear
           </Link>
@@ -294,6 +343,7 @@ export default async function Dashboard({
         <table className="w-full text-sm">
           <thead className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
             <tr>
+              <th className="py-2 pr-2 font-medium"> </th>
               <th className="py-2 pr-4 font-medium">{sortLink('company', 'Company')}</th>
               <th className="py-2 pr-4 font-medium">{sortLink('title', 'Title')}</th>
               <th className="py-2 pr-4 font-medium">{sortLink('location', 'Location')}</th>
@@ -317,8 +367,41 @@ export default async function Dashboard({
               const isNew = new Date(row.first_seen_at).getTime() > sevenDaysAgo;
               const isTopAi = row.companies?.notable_lists?.includes('top_ai');
               const isHighComp = (row.comp_max ?? 0) >= HIGH_COMP_THRESHOLD;
+              const state = row.job_states?.[0];
+              const isSaved = !!state?.is_saved;
+              const isApplied = !!state?.applied_at;
               return (
                 <tr key={row.id} className="align-top">
+                  <td className="whitespace-nowrap py-2 pr-2">
+                    <form method="post" action={`/api/jobs/${row.id}/state`} className="inline">
+                      <input type="hidden" name="return_to" value={currentUrl} />
+                      <button
+                        type="submit"
+                        name="action"
+                        value="toggle_save"
+                        title={isSaved ? 'Unsave' : 'Save'}
+                        className={`text-base leading-none ${isSaved ? 'text-rose-500 hover:text-rose-700' : 'text-zinc-300 hover:text-rose-500'}`}
+                      >
+                        {isSaved ? '★' : '☆'}
+                      </button>
+                    </form>
+                    <form method="post" action={`/api/jobs/${row.id}/state`} className="ml-1 inline">
+                      <input type="hidden" name="return_to" value={currentUrl} />
+                      <button
+                        type="submit"
+                        name="action"
+                        value={isApplied ? 'unmark_applied' : 'mark_applied'}
+                        title={
+                          isApplied
+                            ? `Applied ${state?.applied_at?.slice(0, 10)} — click to undo`
+                            : 'Mark applied'
+                        }
+                        className={`text-base leading-none ${isApplied ? 'text-teal-500 hover:text-teal-700' : 'text-zinc-300 hover:text-teal-500'}`}
+                      >
+                        {isApplied ? '✓' : '·'}
+                      </button>
+                    </form>
+                  </td>
                   <td className="whitespace-nowrap py-2 pr-4 text-zinc-700 dark:text-zinc-300">
                     {row.companies?.name ?? '—'}
                     {isTopAi && (
