@@ -84,12 +84,20 @@ function ArtifactPanel({
             </span>
           )}
           {doc && (
-            <button
-              onClick={copy}
-              className="rounded border border-zinc-300 px-2 py-0.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-            >
-              {copied ? 'copied' : 'copy'}
-            </button>
+            <>
+              <a
+                href={`/api/jobs/${jobId}/download?kind=${kind}`}
+                className="rounded border border-zinc-300 px-2 py-0.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                .docx
+              </a>
+              <button
+                onClick={copy}
+                className="rounded border border-zinc-300 px-2 py-0.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                {copied ? 'copied' : 'copy'}
+              </button>
+            </>
           )}
           <button
             onClick={() => generate(!!doc)}
