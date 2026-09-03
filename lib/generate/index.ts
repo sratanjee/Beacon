@@ -121,6 +121,46 @@ ${job.description_text ?? '(description not available — infer scope from title
   };
 }
 
+// Rewrites the candidate's resume against their positioning statement, with no
+// specific job context. Used once when the user wants a repositioned baseline
+// PDF to replace their current one.
+export async function rewriteResumeForPositioning(profile: Profile): Promise<GenerationResult> {
+  if (!profile.positioning?.trim()) {
+    throw new Error('positioning is required to rewrite the resume');
+  }
+  const system = `You are rewriting a resume for a mid-career engineering leader who is repositioning himself. Rules:
+
+1. NEVER invent experience, dates, titles, companies, metrics, or skills. Every claim must be verifiable from the original resume text.
+2. Rewrite the Summary section to lead with the new positioning statement — do not force it verbatim, weave it into a natural 3-4 sentence summary.
+3. Reorder bullets within each role to lead with the ones that best support the new positioning. Demote bullets purely about tenure or scale that don't reinforce the frame.
+4. Rewrite bullet WORDING (not facts) to use positioning vocabulary — but only where the underlying claim honestly supports the phrasing.
+5. Keep the same overall structure the original uses (Summary → Experience → Education → Skills or whatever).
+6. Aim for one page — cut 20-30% of the original bullets, keeping the ones that most reinforce the new positioning.
+7. Update the Skills section to reflect any positioning-adjacent capabilities that are honestly present.
+8. Output as Markdown formatted like a real resume:
+   - Line 1: heading-1 with the candidate's name (# Name)
+   - Line 2: contact info (email, phone, LinkedIn)
+   - Section headings as heading-2 (## Summary, ## Experience, etc.)
+   - Each role: heading-3 with company name, then a line with bold title and dates, then bullets prefixed with "- "
+   - No code fences, no explanations, no meta-commentary${positioningBlock(profile.positioning)}
+
+CANDIDATE'S ORIGINAL RESUME:
+${profile.resumeText}`;
+
+  const res = await client().messages.create({
+    model: MODEL,
+    max_tokens: 3000,
+    system,
+    messages: [{ role: 'user', content: 'Rewrite this resume for the new positioning. Return the rewritten Markdown only.' }],
+  });
+  return {
+    text: readTextBlock(res),
+    model: MODEL,
+    input_tokens: res.usage.input_tokens,
+    output_tokens: res.usage.output_tokens,
+  };
+}
+
 export async function generateCompanySummary(name: string): Promise<GenerationResult> {
   const res = await client().messages.create({
     model: MODEL,
