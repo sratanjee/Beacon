@@ -107,7 +107,11 @@ export async function runScoring(): Promise<ScoringSummary> {
           if (!block || block.type !== 'text') {
             throw new Error('unexpected block type');
           }
-          const parsed = JSON.parse(block.text) as ScoreResponse;
+          // Haiku insists on wrapping JSON in ```json fences despite the prompt
+          // telling it not to. Strip them defensively so we don't lose an
+          // otherwise-valid score.
+          const text = block.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+          const parsed = JSON.parse(text) as ScoreResponse;
           return { job, parsed, err: null as string | null };
         } catch (e) {
           return {
