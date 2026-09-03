@@ -1,0 +1,153 @@
+import 'server-only';
+import Anthropic from '@anthropic-ai/sdk';
+import { getServiceClient } from '@/lib/supabase/server';
+import { buildSystemPrompt, buildUserPrompt } from './prompt';
+
+export type ScoringSummary = {
+  scored: number;
+  failed: number;
+  skipped_no_resume: boolean;
+  time_budget_hit: boolean;
+  errors: { job_id: number; error: string }[];
+};
+
+type UnscoredJob = {
+  id: number;
+  title: string;
+  location: string | null;
+  description_text: string | null;
+  companies: { name: string } | null;
+};
+
+type ScoreResponse = {
+  domain_proximity: number;
+  seniority_match: number;
+  comp_signal: 'above_current' | 'below_current' | 'comparable' | 'undisclosed';
+  overall_score: number;
+  rationale: string;
+};
+
+const BATCH_SIZE = 5;
+const SOFT_BUDGET_MS = 720_000; // 12 minutes of the 13.3 min maxDuration
+
+export async function runScoring(): Promise<ScoringSummary> {
+  const startedAt = Date.now();
+  const db = getServiceClient();
+
+  const profileRes = await db
+    .from('profiles')
+    .select('resume_text')
+    .eq('id', 1)
+    .maybeSingle();
+  const resumeText = profileRes.data?.resume_text?.trim();
+  if (!resumeText) {
+    return { scored: 0, failed: 0, skipped_no_resume: true, time_budget_hit: false, errors: [] };
+  }
+
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
+  const client = new Anthropic({ apiKey: key });
+  const systemPrompt = buildSystemPrompt(resumeText);
+
+  // Pull unscored EM candidates. LEFT-JOIN fit_scores and filter to nulls.
+  const unscoredRes = await db
+    .from('jobs')
+    .select('id, title, location, description_text, companies!inner(name), fit_scores!left(job_id)')
+    .eq('is_active', true)
+    .eq('title_matches_role', true)
+    .is('fit_scores.job_id', null)
+    .limit(1000);
+  if (unscoredRes.error) throw new Error(`load unscored: ${unscoredRes.error.message}`);
+  const jobs = (unscoredRes.data ?? []) as unknown as UnscoredJob[];
+
+  const errors: { job_id: number; error: string }[] = [];
+  let scored = 0;
+
+  for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
+    if (Date.now() - startedAt > SOFT_BUDGET_MS) {
+      return {
+        scored,
+        failed: errors.length,
+        skipped_no_resume: false,
+        time_budget_hit: true,
+        errors,
+      };
+    }
+    const batch = jobs.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map(async (job) => {
+        try {
+          const response = await client.messages.create({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 400,
+            system: [
+              {
+                type: 'text',
+                text: systemPrompt,
+                cache_control: { type: 'ephemeral' },
+              },
+            ],
+            messages: [
+              {
+                role: 'user',
+                content: buildUserPrompt({
+                  title: job.title,
+                  company: job.companies?.name ?? 'unknown',
+                  location: job.location,
+                  description_text: job.description_text,
+                }),
+              },
+            ],
+          });
+          const block = response.content[0];
+          if (!block || block.type !== 'text') {
+            throw new Error('unexpected block type');
+          }
+          const parsed = JSON.parse(block.text) as ScoreResponse;
+          return { job, parsed, err: null as string | null };
+        } catch (e) {
+          return {
+            job,
+            parsed: null,
+            err: e instanceof Error ? e.message : String(e),
+          };
+        }
+      }),
+    );
+
+    const inserts = results
+      .filter((r) => r.parsed !== null)
+      .map((r) => ({
+        job_id: r.job.id,
+        domain_proximity_score: r.parsed!.domain_proximity,
+        seniority_match_score: r.parsed!.seniority_match,
+        comp_signal: r.parsed!.comp_signal,
+        overall_score: r.parsed!.overall_score,
+        rationale: r.parsed!.rationale,
+        scored_at: new Date().toISOString(),
+      }));
+
+    if (inserts.length > 0) {
+      const upsertRes = await db.from('fit_scores').upsert(inserts, { onConflict: 'job_id' });
+      if (upsertRes.error) {
+        for (const ins of inserts) {
+          errors.push({ job_id: ins.job_id, error: `upsert: ${upsertRes.error.message}` });
+        }
+      } else {
+        scored += inserts.length;
+      }
+    }
+
+    for (const r of results) {
+      if (r.err) errors.push({ job_id: r.job.id, error: r.err });
+    }
+  }
+
+  return {
+    scored,
+    failed: errors.length,
+    skipped_no_resume: false,
+    time_budget_hit: false,
+    errors,
+  };
+}
