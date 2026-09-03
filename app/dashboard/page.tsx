@@ -17,6 +17,9 @@ type SearchParams = {
   dir?: 'asc' | 'desc';
 };
 
+// Supabase PostgREST returns one-to-one related rows as a single object (not an
+// array), when the FK column is also a primary key. fit_scores.job_id and
+// job_states.job_id are both PKs referencing jobs.id, so we get objects.
 type Row = {
   id: number;
   title: string;
@@ -27,8 +30,8 @@ type Row = {
   comp_max: number | null;
   first_seen_at: string;
   companies: { name: string; notable_lists: string[] | null } | null;
-  fit_scores: Array<{ overall_score: number | null; rationale: string | null }> | null;
-  job_states: Array<{ is_saved: boolean | null; applied_at: string | null }> | null;
+  fit_scores: { overall_score: number | null; rationale: string | null } | null;
+  job_states: { is_saved: boolean | null; applied_at: string | null } | null;
 };
 
 type CompanyOption = { name: string };
@@ -367,7 +370,7 @@ export default async function Dashboard({
               const isNew = new Date(row.first_seen_at).getTime() > sevenDaysAgo;
               const isTopAi = row.companies?.notable_lists?.includes('top_ai');
               const isHighComp = (row.comp_max ?? 0) >= HIGH_COMP_THRESHOLD;
-              const state = row.job_states?.[0];
+              const state = row.job_states;
               const isSaved = !!state?.is_saved;
               const isApplied = !!state?.applied_at;
               return (
@@ -429,7 +432,7 @@ export default async function Dashboard({
                   </td>
                   <td className="py-2 pr-4">
                     {(() => {
-                      const fs = row.fit_scores?.[0];
+                      const fs = row.fit_scores;
                       const s = fs?.overall_score;
                       if (s == null) return <span className="text-zinc-400">—</span>;
                       const color =

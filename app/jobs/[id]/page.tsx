@@ -16,14 +16,14 @@ type JobRow = {
   first_seen_at: string;
   description_text: string | null;
   companies: { id: number; name: string; notable_lists: string[] | null } | null;
-  fit_scores: Array<{
+  fit_scores: {
     overall_score: number | null;
     domain_proximity_score: number | null;
     seniority_match_score: number | null;
     comp_signal: string | null;
     rationale: string | null;
-  }> | null;
-  job_states: Array<{ is_saved: boolean | null; applied_at: string | null }> | null;
+  } | null;
+  job_states: { is_saved: boolean | null; applied_at: string | null } | null;
 };
 
 type GeneratedDoc = { text: string; generated_at: string; model: string };
@@ -76,8 +76,8 @@ export default async function JobDetail({
   const cover: GeneratedDoc | null = coverRes.data ?? null;
   const resume: GeneratedDoc | null = resumeRes.data ?? null;
 
-  const fit = job.fit_scores?.[0];
-  const state = job.job_states?.[0];
+  const fit = job.fit_scores;
+  const state = job.job_states;
   const isSaved = !!state?.is_saved;
   const isApplied = !!state?.applied_at;
   const returnTo = `/jobs/${jobId}`;
