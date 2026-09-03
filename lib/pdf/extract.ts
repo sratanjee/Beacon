@@ -7,7 +7,11 @@ export async function extractResumeText(pdfBytes: Buffer): Promise<ExtractResult
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
 
-  const client = new Anthropic({ apiKey: key });
+  const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
+  const client = new Anthropic({
+    apiKey: key,
+    defaultHeaders: workspaceId ? { 'anthropic-workspace-id': workspaceId } : undefined,
+  });
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,

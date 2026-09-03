@@ -46,7 +46,11 @@ export async function runScoring(): Promise<ScoringSummary> {
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY not configured');
-  const client = new Anthropic({ apiKey: key });
+  const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
+  const client = new Anthropic({
+    apiKey: key,
+    defaultHeaders: workspaceId ? { 'anthropic-workspace-id': workspaceId } : undefined,
+  });
   const systemPrompt = buildSystemPrompt(resumeText);
 
   // Pull unscored EM candidates. LEFT-JOIN fit_scores and filter to nulls.
