@@ -135,7 +135,44 @@ export default async function Dashboard({
   query = query.limit(500);
 
   const jobsRes = await query;
-  const rows = (jobsRes.data ?? []) as unknown as Row[];
+  const rawRows = (jobsRes.data ?? []) as unknown as Row[];
+
+  // Collapse same-title-same-company duplicates (Brex / Databricks / Twilio /
+  // Instacart cross-post one req to 3-5 cities as separate ATS rows). Keep the
+  // canonical row (first in current sort order), aggregate locations, and
+  // OR-together saved / applied state so a starred variant is still starred.
+  type MergedRow = Row & { location_count: number };
+  const groups = new Map<string, MergedRow>();
+  for (const row of rawRows) {
+    const key = `${row.companies?.name ?? ''}|${row.title}`;
+    const existing = groups.get(key);
+    if (!existing) {
+      groups.set(key, { ...row, location_count: 1 });
+    } else {
+      existing.location_count += 1;
+      if (row.location && row.location !== existing.location) {
+        existing.location = `${existing.location ?? ''}; ${row.location}`
+          .split(';')
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .filter((s, i, arr) => arr.indexOf(s) === i)
+          .join('; ');
+      }
+      if (row.job_states?.is_saved) {
+        existing.job_states = {
+          is_saved: true,
+          applied_at: existing.job_states?.applied_at ?? row.job_states.applied_at ?? null,
+        };
+      }
+      if (row.job_states?.applied_at && !existing.job_states?.applied_at) {
+        existing.job_states = {
+          is_saved: !!existing.job_states?.is_saved || !!row.job_states.is_saved,
+          applied_at: row.job_states.applied_at,
+        };
+      }
+    }
+  }
+  const rows = [...groups.values()];
 
   const sevenDaysAgo = Date.now() - 7 * 86_400_000;
 
@@ -423,6 +460,14 @@ export default async function Dashboard({
                     {isNew && (
                       <span className="ml-2 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
                         new
+                      </span>
+                    )}
+                    {row.location_count > 1 && (
+                      <span
+                        className="ml-2 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                        title="Same role cross-posted at multiple locations"
+                      >
+                        {row.location_count} locations
                       </span>
                     )}
                   </td>
