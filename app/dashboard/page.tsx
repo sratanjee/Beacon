@@ -379,6 +379,92 @@ export default async function Dashboard({
         />
       )}
 
+      {hasResume &&
+        !company &&
+        !remoteOnly &&
+        !aiOnly &&
+        !validMinComp &&
+        !greatFitOnly &&
+        !savedOnly &&
+        !appliedFilter &&
+        rows.length > 0 && (() => {
+          const top = rows
+            .filter((r) => (r.fit_scores?.overall_score ?? 0) >= 60)
+            .slice(0, 10);
+          if (top.length === 0) return null;
+          return (
+            <section className="mt-8 rounded border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-900/40">
+              <div className="flex items-baseline justify-between">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+                  Top picks — apply to these
+                </h2>
+                <span className="text-xs text-zinc-500">Ranked by fit score against your positioning</span>
+              </div>
+              <ol className="mt-3 divide-y divide-zinc-200 dark:divide-zinc-800">
+                {top.map((r, i) => {
+                  const fit = r.fit_scores?.overall_score ?? 0;
+                  const compLo = r.comp_min;
+                  const compHi = r.comp_max;
+                  const compLabel =
+                    compLo && compHi
+                      ? `$${Math.round(compLo / 1000)}K–$${Math.round(compHi / 1000)}K`
+                      : compHi
+                        ? `up to $${Math.round(compHi / 1000)}K`
+                        : compLo
+                          ? `$${Math.round(compLo / 1000)}K+`
+                          : 'comp undisclosed';
+                  const fitBg =
+                    fit >= 80
+                      ? 'bg-emerald-700'
+                      : fit >= 70
+                        ? 'bg-emerald-600'
+                        : 'bg-amber-600';
+                  return (
+                    <li key={r.id} className="flex items-start gap-3 py-2.5">
+                      <span className="mt-0.5 w-5 text-right text-xs font-medium text-zinc-400">
+                        {i + 1}.
+                      </span>
+                      <span
+                        className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold text-white ${fitBg}`}
+                      >
+                        {fit}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                            {r.companies?.name}
+                          </span>
+                          <Link
+                            href={`/jobs/${r.id}`}
+                            className="text-sm text-zinc-700 hover:text-blue-600 hover:underline dark:text-zinc-300 dark:hover:text-blue-400"
+                          >
+                            {r.title}
+                          </Link>
+                          <a
+                            href={r.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+                          >
+                            Open ATS ↗
+                          </a>
+                        </div>
+                        <div className="mt-0.5 text-xs text-zinc-500">
+                          {compLabel}
+                          {r.location ? ` · ${r.location.slice(0, 60)}` : ''}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+              <p className="mt-3 text-xs text-zinc-500">
+                Full list below — use filters to narrow further.
+              </p>
+            </section>
+          );
+        })()}
+
       <div className="mt-8 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
