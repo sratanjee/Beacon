@@ -3,7 +3,7 @@ import { fetchGreenhouseJobs } from '@/lib/ats/greenhouse';
 import { fetchAshbyJobs } from '@/lib/ats/ashby';
 import { fetchLeverJobs } from '@/lib/ats/lever';
 import { getServiceClient } from '@/lib/supabase/server';
-import { matchesEmRole } from '@/lib/filter/title';
+import { ROLE_PACKS, matchesPack } from '@/lib/roles/packs';
 import type { FetchError, NormalizedJob } from '@/lib/ats/types';
 
 type CompanyRow = {
@@ -140,7 +140,6 @@ async function upsertJobs(company: CompanyRow, jobs: NormalizedJob[]): Promise<n
     comp_max: j.comp_max,
     last_seen_at: now,
     is_active: true,
-    title_matches_role: matchesEmRole(j.title),
     description_text: j.description_text,
     raw: j.raw,
   }));
@@ -149,6 +148,27 @@ async function upsertJobs(company: CompanyRow, jobs: NormalizedJob[]): Promise<n
     .from('jobs')
     .upsert(rows, { onConflict: 'company_id,external_id', ignoreDuplicates: false });
   if (upErr) throw new Error(`upsert jobs for ${company.name}: ${upErr.message}`);
+
+  // Populate job_role_matches for the just-upserted rows.
+  const { data: upserted, error: readErr } = await db
+    .from('jobs')
+    .select('id, external_id, title')
+    .eq('company_id', company.id)
+    .in('external_id', jobs.map((j) => j.external_id));
+  if (readErr) throw new Error(`read upserted jobs for ${company.name}: ${readErr.message}`);
+
+  const matchRows: { job_id: number; role_pack: string }[] = [];
+  for (const row of upserted ?? []) {
+    for (const pack of ROLE_PACKS) {
+      if (matchesPack(pack.id, row.title)) matchRows.push({ job_id: row.id, role_pack: pack.id });
+    }
+  }
+  if (matchRows.length > 0) {
+    const { error: mErr } = await db
+      .from('job_role_matches')
+      .upsert(matchRows, { onConflict: 'job_id,role_pack', ignoreDuplicates: true });
+    if (mErr) throw new Error(`upsert job_role_matches for ${company.name}: ${mErr.message}`);
+  }
 
   const seenIds = new Set(jobs.map((j) => j.external_id));
   const toDeactivate = [...known].filter((id) => !seenIds.has(id));
