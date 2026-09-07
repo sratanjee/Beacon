@@ -13,8 +13,14 @@ export async function POST(req: NextRequest) {
   const email = String(form.get('email') ?? '').trim().toLowerCase();
   const token = String(form.get('token') ?? '').trim();
 
-  if (!email.includes('@') || !/^\d{6,8}$/.test(token)) {
-    return NextResponse.redirect(new URL('/login/verify?error=1', req.url), 303);
+  if (!email.includes('@')) {
+    return NextResponse.redirect(new URL('/login/verify?error=email', req.url), 303);
+  }
+  if (!/^\d{6,8}$/.test(token)) {
+    return NextResponse.redirect(
+      new URL(`/login/verify?error=token&email=${encodeURIComponent(email)}`, req.url),
+      303,
+    );
   }
 
   const cookieStore = await cookies();
@@ -31,13 +37,30 @@ export async function POST(req: NextRequest) {
     },
   );
 
-  const { data, error } = await supabase.auth.verifyOtp({
-    email,
-    token,
-    type: 'email',
-  });
-  if (error || !data.user) {
-    return NextResponse.redirect(new URL('/login/verify?error=1', req.url), 303);
+  // Supabase's verifyOtp type depends on how the OTP was generated:
+  // - signInWithOtp email flow → 'email'
+  // - admin.generateLink({type:'magiclink'}) → 'magiclink' (via email_otp)
+  // Try both; whichever matches wins.
+  const attempts = [
+    { type: 'email' as const },
+    { type: 'magiclink' as const },
+  ];
+  let data: Awaited<ReturnType<typeof supabase.auth.verifyOtp>>['data'] | null = null;
+  let lastError: string | null = null;
+  for (const attempt of attempts) {
+    const res = await supabase.auth.verifyOtp({ email, token, type: attempt.type });
+    if (!res.error && res.data.user) {
+      data = res.data;
+      break;
+    }
+    lastError = res.error?.message ?? 'unknown';
+  }
+  if (!data?.user) {
+    console.error('[verify-otp] all types failed', { email, lastError });
+    return NextResponse.redirect(
+      new URL(`/login/verify?error=verify&email=${encodeURIComponent(email)}`, req.url),
+      303,
+    );
   }
 
   const admin = getServiceClient();

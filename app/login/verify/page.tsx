@@ -38,7 +38,17 @@ export default async function VerifyOtp({
         >
           Sign in
         </button>
-        {params.error === '1' && (
+        {params.error === 'email' && (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Enter your email address.
+          </p>
+        )}
+        {params.error === 'token' && (
+          <p className="text-sm text-red-600 dark:text-red-400">
+            The code should be 6–8 digits.
+          </p>
+        )}
+        {params.error === 'verify' && (
           <p className="text-sm text-red-600 dark:text-red-400">
             That code didn&apos;t work. It may be expired — ask for a new one.
           </p>
