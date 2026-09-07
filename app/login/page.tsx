@@ -36,6 +36,13 @@ export default async function Login({
           <p className="text-sm text-red-600 dark:text-red-400">Something went wrong. Try again.</p>
         )}
       </form>
+      <p className="mt-6 text-xs text-zinc-500">
+        Have a 6-digit code instead?{' '}
+        <a href="/login/verify" className="underline hover:text-zinc-800 dark:hover:text-zinc-300">
+          Enter it here
+        </a>
+        .
+      </p>
     </main>
   );
 }

@@ -32,10 +32,18 @@ export async function POST(req: NextRequest) {
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const otp = data.properties?.email_otp;
+  const verifyUrl = otp
+    ? `${origin}/login/verify?email=${encodeURIComponent(email)}`
+    : null;
+
   return NextResponse.json({
     email,
+    otp,
+    verify_url: verifyUrl,
     action_link: data.properties?.action_link,
-    expires_at: data.properties?.email_otp,
-    hint: 'Open the action_link in a browser (or DM it to the invited user). Bypasses SMTP.',
+    hint:
+      'Preferred: DM the friend the verify_url + otp — bypasses Supabase redirect-allowlist quirks. ' +
+      'The action_link only works if the callback URL is in Supabase Auth allowlist.',
   });
 }
