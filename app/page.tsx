@@ -6,19 +6,22 @@ export const dynamic = 'force-dynamic';
 export default async function Home() {
   const db = getServiceClient();
 
-  const [activeRes, matchRes, runRes, companyRes] = await Promise.all([
+  // "Matched" = distinct active jobs with ≥ 1 role_pack match across any pack.
+  // Pull the ids in one round-trip and uniquify in memory (~2k rows max).
+  const [activeRes, matchIdsRes, runRes, companyRes] = await Promise.all([
     db.from('jobs').select('*', { count: 'exact', head: true }).eq('is_active', true),
     db
-      .from('jobs')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_active', true)
-      .eq('title_matches_role', true),
+      .from('job_role_matches')
+      .select('job_id, jobs!inner(is_active)')
+      .eq('jobs.is_active', true),
     db.from('fetch_runs').select('run_at').order('id', { ascending: false }).limit(1).maybeSingle(),
     db.from('companies').select('*', { count: 'exact', head: true }).in('ats_type', ['greenhouse', 'ashby', 'lever']),
   ]);
 
   const active = activeRes.count ?? 0;
-  const matched = matchRes.count ?? 0;
+  const matched = new Set(
+    (matchIdsRes.data ?? []).map((r: { job_id: number }) => r.job_id),
+  ).size;
   const companies = companyRes.count ?? 0;
   const lastRun = runRes.data?.run_at ? new Date(runRes.data.run_at) : null;
 
@@ -31,7 +34,7 @@ export default async function Home() {
 
       <dl className="mt-14 grid grid-cols-3 gap-8 text-sm">
         <div>
-          <dt className="text-zinc-500 dark:text-zinc-400">EM candidates</dt>
+          <dt className="text-zinc-500 dark:text-zinc-400">Matched roles</dt>
           <dd className="mt-1 text-3xl font-semibold tabular-nums">
             {matched.toLocaleString()}
           </dd>

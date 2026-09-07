@@ -147,7 +147,21 @@ export default async function Dashboard({
     rows: jobsRes.data?.length ?? 0,
     error: jobsRes.error?.message ?? null,
   });
-  const rawRows = (jobsRes.data ?? []) as unknown as Row[];
+  // After Phase 6 the composite PK on fit_scores/job_states became (job_id,
+  // user_id) — PostgREST now returns these embeds as arrays, not the old
+  // single-object shape. Filter server-side by user.id (embed filters), then
+  // unwrap the single-element arrays back to the object shape the UI expects.
+  const rawRows = (jobsRes.data ?? []).map((r: unknown) => {
+    const row = r as Row & {
+      fit_scores?: Row['fit_scores'] | Array<NonNullable<Row['fit_scores']>>;
+      job_states?: Row['job_states'] | Array<NonNullable<Row['job_states']>>;
+    };
+    return {
+      ...row,
+      fit_scores: Array.isArray(row.fit_scores) ? (row.fit_scores[0] ?? null) : row.fit_scores,
+      job_states: Array.isArray(row.job_states) ? (row.job_states[0] ?? null) : row.job_states,
+    } as Row;
+  });
 
   // Collapse same-title-same-company duplicates (Brex / Databricks / Twilio /
   // Instacart cross-post one req to 3-5 cities as separate ATS rows). Keep the
