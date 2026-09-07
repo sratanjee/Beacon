@@ -37,7 +37,7 @@ export default async function Login({
         )}
       </form>
       <p className="mt-6 text-xs text-zinc-500">
-        Have a 6-digit code instead?{' '}
+        Have a code instead?{' '}
         <a href="/login/verify" className="underline hover:text-zinc-800 dark:hover:text-zinc-300">
           Enter it here
         </a>

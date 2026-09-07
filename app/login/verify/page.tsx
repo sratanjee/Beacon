@@ -10,7 +10,7 @@ export default async function VerifyOtp({
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
       <h1 className="text-3xl font-semibold tracking-tight">Beacon</h1>
       <p className="mt-2 text-sm text-zinc-500">
-        Enter the 6-digit code you were sent.
+        Enter the code you were sent.
       </p>
       <form method="post" action="/api/auth/verify-otp" className="mt-8 space-y-3">
         <input
@@ -26,10 +26,10 @@ export default async function VerifyOtp({
           name="token"
           required
           inputMode="numeric"
-          pattern="\d{6}"
+          pattern="\d{6,8}"
           autoFocus
-          maxLength={6}
-          placeholder="6-digit code"
+          maxLength={8}
+          placeholder="code"
           className="w-full rounded border border-zinc-300 bg-white px-3 py-2 text-center text-lg tracking-widest tabular-nums dark:border-zinc-700 dark:bg-zinc-900"
         />
         <button

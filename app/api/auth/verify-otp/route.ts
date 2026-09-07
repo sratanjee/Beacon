@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   const email = String(form.get('email') ?? '').trim().toLowerCase();
   const token = String(form.get('token') ?? '').trim();
 
-  if (!email.includes('@') || !/^\d{6}$/.test(token)) {
+  if (!email.includes('@') || !/^\d{6,8}$/.test(token)) {
     return NextResponse.redirect(new URL('/login/verify?error=1', req.url), 303);
   }
 
