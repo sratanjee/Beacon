@@ -144,18 +144,15 @@ async function upsertJobs(company: CompanyRow, jobs: NormalizedJob[]): Promise<n
     raw: j.raw,
   }));
 
-  const { error: upErr } = await db
+  // Upsert + return the affected rows in one round-trip. Chaining .select()
+  // avoids a separate read-back which hit PostgREST URL-length limits on
+  // big-company companies (Anduril, OpenAI, Veeva — 200-2200 external_ids
+  // in a .in() clause overflows the URL).
+  const { data: upserted, error: upErr } = await db
     .from('jobs')
-    .upsert(rows, { onConflict: 'company_id,external_id', ignoreDuplicates: false });
+    .upsert(rows, { onConflict: 'company_id,external_id', ignoreDuplicates: false })
+    .select('id, title');
   if (upErr) throw new Error(`upsert jobs for ${company.name}: ${upErr.message}`);
-
-  // Populate job_role_matches for the just-upserted rows.
-  const { data: upserted, error: readErr } = await db
-    .from('jobs')
-    .select('id, external_id, title')
-    .eq('company_id', company.id)
-    .in('external_id', jobs.map((j) => j.external_id));
-  if (readErr) throw new Error(`read upserted jobs for ${company.name}: ${readErr.message}`);
 
   const matchRows: { job_id: number; role_pack: string }[] = [];
   for (const row of upserted ?? []) {
