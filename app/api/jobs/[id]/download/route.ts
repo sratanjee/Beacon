@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase/server';
 import { markdownToDocxBuffer } from '@/lib/docx/from-markdown';
 import { markdownToPdfBuffer } from '@/lib/pdf/from-markdown';
+import { requireUser } from '@/lib/auth/user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,6 +49,7 @@ export async function GET(
     );
   }
 
+  const user = await requireUser();
   const db = getServiceClient();
 
   const [docRes, jobRes] = await Promise.all([
@@ -56,6 +58,7 @@ export async function GET(
       .select('text')
       .eq('job_id', jobId)
       .eq('kind', kind)
+      .eq('user_id', user.id)
       .maybeSingle(),
     db
       .from('jobs')

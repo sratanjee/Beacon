@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase/server';
 import { generateCoverLetter, generateTailoredResume, type JobContext } from '@/lib/generate';
+import { requireUser } from '@/lib/auth/user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,7 @@ export async function POST(
   }
 
   const force = url.searchParams.get('force') === '1';
+  const user = await requireUser();
   const db = getServiceClient();
 
   if (!force) {
@@ -44,6 +46,7 @@ export async function POST(
       .select('text, generated_at, model')
       .eq('job_id', jobId)
       .eq('kind', kind)
+      .eq('user_id', user.id)
       .maybeSingle();
     if (cached.data) {
       return NextResponse.json({
@@ -66,9 +69,9 @@ export async function POST(
   const job = jobRes.data as unknown as JobRow;
 
   const profileRes = await db
-    .from('profiles')
+    .from('users')
     .select('resume_text, positioning')
-    .eq('id', 1)
+    .eq('id', user.id)
     .maybeSingle();
   const resumeText = profileRes.data?.resume_text?.trim();
   if (!resumeText) {
@@ -103,6 +106,7 @@ export async function POST(
     .from('generated_docs')
     .upsert({
       job_id: jobId,
+      user_id: user.id,
       kind,
       text: result.text,
       model: result.model,

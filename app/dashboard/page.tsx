@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { getServiceClient } from '@/lib/supabase/server';
 import { CompanySummaryCard } from './company-summary-card';
+import { requireUser } from '@/lib/auth/user';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,10 +76,11 @@ export default async function Dashboard({
   const minComp = params.min_comp ? Number.parseInt(params.min_comp, 10) : null;
   const validMinComp = minComp && minComp > 0 && minComp < 2_000_000 ? minComp : null;
 
-  const db = getServiceClient();
+  const user = await requireUser();
+  if (!user.role_pack) redirect('/onboarding');
+  const hasResume = user.has_resume;
 
-  const profileRes = await db.from('profiles').select('id').eq('id', 1).maybeSingle();
-  const hasResume = !!profileRes.data;
+  const db = getServiceClient();
 
   const validSorts = ['first_seen', 'company', 'title', 'location', 'comp', 'fit'] as const;
   const sort: SortKey = (validSorts as readonly string[]).includes(params.sort ?? '')
@@ -111,10 +114,13 @@ export default async function Dashboard({
       'id, title, url, location, remote_ok, comp_min, comp_max, first_seen_at, ' +
         'companies!inner(name, notable_lists), ' +
         'fit_scores!left(overall_score, rationale), ' +
-        'job_states!left(is_saved, applied_at)',
+        'job_states!left(is_saved, applied_at), ' +
+        'job_role_matches!inner(role_pack)',
     )
     .eq('is_active', true)
-    .eq('title_matches_role', true);
+    .eq('job_role_matches.role_pack', user.role_pack!)
+    .eq('fit_scores.user_id', user.id)
+    .eq('job_states.user_id', user.id);
 
   if (company) query = query.eq('companies.name', company);
   if (aiOnly) query = query.contains('companies.notable_lists', ['top_ai']);
@@ -307,6 +313,14 @@ export default async function Dashboard({
               🌍 Remote
             </Link>
           </div>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-zinc-500">
+          <span>{user.email}</span>
+          <form method="post" action="/logout" className="inline">
+            <button type="submit" className="hover:text-zinc-800 dark:hover:text-zinc-200">
+              log out
+            </button>
+          </form>
         </div>
       </div>
 

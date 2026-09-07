@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,17 +22,20 @@ export async function POST(
   const returnTo = String(form.get('return_to') ?? '/dashboard');
   const safeReturn = returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/dashboard';
 
+  const user = await requireUser();
   const db = getServiceClient();
   const existingRes = await db
     .from('job_states')
     .select('is_saved, applied_at')
     .eq('job_id', jobId)
+    .eq('user_id', user.id)
     .maybeSingle();
   const existing: Existing = existingRes.data ?? null;
 
   const now = new Date().toISOString();
-  const update: { job_id: number; is_saved: boolean; applied_at: string | null; updated_at: string } = {
+  const update: { job_id: number; user_id: string; is_saved: boolean; applied_at: string | null; updated_at: string } = {
     job_id: jobId,
+    user_id: user.id,
     is_saved: existing?.is_saved ?? false,
     applied_at: existing?.applied_at ?? null,
     updated_at: now,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractResumeText } from '@/lib/pdf/extract';
 import { getServiceClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,6 +10,7 @@ export const maxDuration = 60;
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
 export async function POST(req: NextRequest) {
+  const user = await requireUser();
   const form = await req.formData();
   const file = form.get('file');
   if (!(file instanceof File)) {
@@ -44,13 +46,13 @@ export async function POST(req: NextRequest) {
   }
 
   const upsertRes = await db
-    .from('profiles')
-    .upsert({
-      id: 1,
+    .from('users')
+    .update({
       resume_pdf_path: path,
       resume_text: extracted.text,
       updated_at: new Date().toISOString(),
     })
+    .eq('id', user.id)
     .select('id, updated_at')
     .single();
 

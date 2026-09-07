@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getServiceClient } from '@/lib/supabase/server';
 import { GenerateSection } from './generate-section';
+import { requireUser } from '@/lib/auth/user';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +46,7 @@ export default async function JobDetail({
   const jobId = Number.parseInt(id, 10);
   if (!Number.isFinite(jobId)) notFound();
 
+  const user = await requireUser();
   const db = getServiceClient();
   const jobRes = await db
     .from('jobs')
@@ -55,6 +57,8 @@ export default async function JobDetail({
         'job_states!left(is_saved, applied_at)',
     )
     .eq('id', jobId)
+    .eq('fit_scores.user_id', user.id)
+    .eq('job_states.user_id', user.id)
     .maybeSingle();
   if (jobRes.error || !jobRes.data) notFound();
   const job = jobRes.data as unknown as JobRow;
@@ -65,12 +69,14 @@ export default async function JobDetail({
       .select('text, generated_at, model')
       .eq('job_id', jobId)
       .eq('kind', 'cover_letter')
+      .eq('user_id', user.id)
       .maybeSingle(),
     db
       .from('generated_docs')
       .select('text, generated_at, model')
       .eq('job_id', jobId)
       .eq('kind', 'tailored_resume')
+      .eq('user_id', user.id)
       .maybeSingle(),
   ]);
   const cover: GeneratedDoc | null = coverRes.data ?? null;

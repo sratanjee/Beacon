@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getServiceClient } from '@/lib/supabase/server';
+import { requireUser } from '@/lib/auth/user';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,31 +12,29 @@ type Profile = {
 } | null;
 
 export default async function ResumePage() {
+  const user = await requireUser();
   const db = getServiceClient();
-  const [profileRes, _jobCountsRes] = await Promise.all([
-    db.from('profiles').select('resume_pdf_path, resume_text, positioning, updated_at').eq('id', 1).maybeSingle(),
-    db.rpc('phase3_scored_counts').select().maybeSingle().then(
-      (r) => r,
-      () => ({ data: null, error: null }),
-    ),
-  ]);
+
+  const profileRes = await db
+    .from('users')
+    .select('resume_pdf_path, resume_text, positioning, updated_at')
+    .eq('id', user.id)
+    .maybeSingle();
 
   const profile: Profile = profileRes.data ?? null;
 
-  // Fallback: compute counts inline if the RPC doesn't exist yet
+  // Compute scored vs total counts scoped to this user's role_pack + fit_scores
   let scored = 0;
   let total = 0;
-  const counts = await db
-    .from('jobs')
-    .select('id, fit_scores!left(job_id)', { count: 'exact', head: false })
-    .eq('is_active', true)
-    .eq('title_matches_role', true);
-  if (!counts.error) {
-    total = counts.data?.length ?? 0;
-    scored = (counts.data ?? []).filter(
-      (r: { fit_scores?: unknown[] | null }) => Array.isArray(r.fit_scores) && r.fit_scores.length > 0,
-    ).length;
-  }
+  const [emCountRes, scoredCountRes] = await Promise.all([
+    db.from('jobs').select('id, job_role_matches!inner(role_pack)', { count: 'exact', head: true })
+      .eq('is_active', true)
+      .eq('job_role_matches.role_pack', user.role_pack!),
+    db.from('fit_scores').select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id),
+  ]);
+  total = emCountRes.count ?? 0;
+  scored = scoredCountRes.count ?? 0;
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">

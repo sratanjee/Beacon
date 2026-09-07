@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase/server';
 import { rewriteResumeForPositioning } from '@/lib/generate';
+import { requireUser } from '@/lib/auth/user';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(_req: NextRequest) {
+  const user = await requireUser();
   const db = getServiceClient();
   const profileRes = await db
-    .from('profiles')
+    .from('users')
     .select('resume_text, positioning')
-    .eq('id', 1)
+    .eq('id', user.id)
     .maybeSingle();
   const resumeText = profileRes.data?.resume_text?.trim();
   const positioning = profileRes.data?.positioning?.trim();
