@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase/server';
 import { markdownToDocxBuffer } from '@/lib/docx/from-markdown';
+import { markdownToPdfBuffer } from '@/lib/pdf/from-markdown';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 type Kind = 'cover_letter' | 'tailored_resume';
+type Format = 'docx' | 'pdf';
 
 const KIND_LABEL: Record<Kind, string> = {
   cover_letter: 'Cover-Letter',
   tailored_resume: 'Resume',
+};
+
+const FORMAT_MIME: Record<Format, string> = {
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  pdf: 'application/pdf',
 };
 
 function sanitize(name: string): string {
@@ -25,10 +32,18 @@ export async function GET(
   if (!Number.isFinite(jobId)) {
     return NextResponse.json({ error: 'invalid job id' }, { status: 400 });
   }
-  const kind = new URL(req.url).searchParams.get('kind') as Kind | null;
+  const search = new URL(req.url).searchParams;
+  const kind = search.get('kind') as Kind | null;
   if (kind !== 'cover_letter' && kind !== 'tailored_resume') {
     return NextResponse.json(
       { error: 'kind must be cover_letter or tailored_resume' },
+      { status: 400 },
+    );
+  }
+  const format = (search.get('format') ?? 'docx') as Format;
+  if (format !== 'docx' && format !== 'pdf') {
+    return NextResponse.json(
+      { error: 'format must be docx or pdf' },
       { status: 400 },
     );
   }
@@ -57,13 +72,16 @@ export async function GET(
   }
   const companyName = (jobRes.data as { companies: { name: string } } | null)?.companies?.name ?? 'Company';
 
-  const buffer = await markdownToDocxBuffer(docRes.data.text);
-  const filename = `${sanitize(companyName)}-${KIND_LABEL[kind]}.docx`;
+  const buffer =
+    format === 'pdf'
+      ? await markdownToPdfBuffer(docRes.data.text, kind)
+      : await markdownToDocxBuffer(docRes.data.text);
+  const filename = `${sanitize(companyName)}-${KIND_LABEL[kind]}.${format}`;
 
   return new NextResponse(buffer as unknown as BodyInit, {
     status: 200,
     headers: {
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Type': FORMAT_MIME[format],
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Content-Length': String(buffer.length),
     },

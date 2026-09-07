@@ -86,7 +86,13 @@ function ArtifactPanel({
           {doc && (
             <>
               <a
-                href={`/api/jobs/${jobId}/download?kind=${kind}`}
+                href={`/api/jobs/${jobId}/download?kind=${kind}&format=pdf`}
+                className="rounded border border-zinc-300 px-2 py-0.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                .pdf
+              </a>
+              <a
+                href={`/api/jobs/${jobId}/download?kind=${kind}&format=docx`}
                 className="rounded border border-zinc-300 px-2 py-0.5 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
               >
                 .docx
