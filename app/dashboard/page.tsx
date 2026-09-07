@@ -141,6 +141,12 @@ export default async function Dashboard({
   query = query.limit(500);
 
   const jobsRes = await query;
+  console.log('[dashboard]', {
+    user_id: user.id,
+    role_pack: user.role_pack,
+    rows: jobsRes.data?.length ?? 0,
+    error: jobsRes.error?.message ?? null,
+  });
   const rawRows = (jobsRes.data ?? []) as unknown as Row[];
 
   // Collapse same-title-same-company duplicates (Brex / Databricks / Twilio /
