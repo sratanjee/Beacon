@@ -1,32 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AUTH_COOKIE, verifyCookie } from '@/lib/auth/cookie';
+import { createServerClient } from '@supabase/ssr';
 
-// Public routes — always accessible without a cookie
 const PUBLIC_PATHS = new Set(['/login']);
-const PUBLIC_PATH_PREFIXES = ['/api/login', '/api/run-weekly-scan'];
+const PUBLIC_PATH_PREFIXES = ['/api/auth/', '/api/run-weekly-scan'];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-
   if (PUBLIC_PATHS.has(pathname)) return NextResponse.next();
   if (PUBLIC_PATH_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
-  const site = process.env.SITE_PASSWORD;
-  if (!site) {
-    // Fail closed if not configured — better than accidentally leaking during setup
-    return NextResponse.redirect(new URL('/login?error=1', req.url));
-  }
-
-  const cookie = req.cookies.get(AUTH_COOKIE)?.value;
-  if (await verifyCookie(cookie, site)) return NextResponse.next();
-
-  const next = pathname + req.nextUrl.search;
-  return NextResponse.redirect(
-    new URL(`/login?next=${encodeURIComponent(next)}`, req.url),
+  const res = NextResponse.next();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => req.cookies.getAll(),
+        setAll: (list) => {
+          for (const { name, value, options } of list) res.cookies.set(name, value, options);
+        },
+      },
+    },
   );
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    const next = pathname + req.nextUrl.search;
+    return NextResponse.redirect(new URL(`/login?next=${encodeURIComponent(next)}`, req.url));
+  }
+  return res;
 }
 
 export const config = {
-  // Run on everything except Next.js internals, static files, favicon.
   matcher: ['/((?!_next/|favicon\\.ico|.*\\..*).*)'],
 };
