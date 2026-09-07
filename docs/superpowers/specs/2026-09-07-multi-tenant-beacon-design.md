@@ -233,7 +233,12 @@ cover letter/resume) all intact after migration — same UUIDs, same URLs.
 3. Data migration (Sarang → users, backfill user_id everywhere).
 4. Middleware swap (cookie → Supabase session).
 5. Onboarding page + role-pack picker.
-6. All dashboard/jobs/resume routes user-scoped.
+6. All dashboard/jobs/resume routes user-scoped — including the download
+   route (`/api/jobs/[id]/download`) which currently queries `generated_docs`
+   unscoped. Add `.eq('user_id', currentUserId)` so user A can't download
+   user B's cover letter or resume by guessing a job_id. Applies to both
+   `?format=docx` and `?format=pdf` paths (introduced separately in commit
+   e5d1aad).
 7. Scan pipeline: populate `job_role_matches`, per-user scoring loop.
 8. Admin `/admin/invites` page.
 9. Company universe expansion probe + insert.
