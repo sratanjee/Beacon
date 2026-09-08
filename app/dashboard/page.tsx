@@ -131,27 +131,22 @@ export default async function Dashboard({
   if (appliedFilter === 'yes') query = query.not('job_states.applied_at', 'is', null);
   if (appliedFilter === 'no') query = query.is('job_states.applied_at', null);
 
+  // fit sort has to happen in memory: after Phase 6 the composite PK on
+  // fit_scores became (job_id, user_id) so PostgREST considers the relation
+  // many-to-many and rejects .order('fit_scores(overall_score)') with 400,
+  // which nulls out the entire response. Everything else can sort DB-side.
   if (sort === 'comp') {
     query = query.order('comp_max', { ascending: dir === 'asc', nullsFirst: false });
-  } else if (sort === 'fit') {
-    query = query.order('fit_scores(overall_score)', { ascending: dir === 'asc', nullsFirst: false });
-  } else {
+  } else if (sort !== 'fit') {
     query = query.order(SORT_COLUMNS[sort], { ascending: dir === 'asc' });
   }
   query = query.limit(500);
 
   const jobsRes = await query;
-  console.log('[dashboard]', {
-    user_id: user.id,
-    role_pack: user.role_pack,
-    rows: jobsRes.data?.length ?? 0,
-    error: jobsRes.error?.message ?? null,
-  });
-  // After Phase 6 the composite PK on fit_scores/job_states became (job_id,
-  // user_id) — PostgREST now returns these embeds as arrays, not the old
-  // single-object shape. Filter server-side by user.id (embed filters), then
-  // unwrap the single-element arrays back to the object shape the UI expects.
-  const rawRows = (jobsRes.data ?? []).map((r: unknown) => {
+  // Unwrap the single-element arrays PostgREST now returns for fit_scores /
+  // job_states (composite PK → many-to-one from PostgREST's POV, even though
+  // our user_id filter guarantees ≤1 row per join).
+  let rawRows = (jobsRes.data ?? []).map((r: unknown) => {
     const row = r as Row & {
       fit_scores?: Row['fit_scores'] | Array<NonNullable<Row['fit_scores']>>;
       job_states?: Row['job_states'] | Array<NonNullable<Row['job_states']>>;
@@ -162,6 +157,17 @@ export default async function Dashboard({
       job_states: Array.isArray(row.job_states) ? (row.job_states[0] ?? null) : row.job_states,
     } as Row;
   });
+  if (sort === 'fit') {
+    const sign = dir === 'asc' ? 1 : -1;
+    rawRows = rawRows.sort((a, b) => {
+      const av = a.fit_scores?.overall_score;
+      const bv = b.fit_scores?.overall_score;
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return sign * (av - bv);
+    });
+  }
 
   // Collapse same-title-same-company duplicates (Brex / Databricks / Twilio /
   // Instacart cross-post one req to 3-5 cities as separate ATS rows). Keep the
