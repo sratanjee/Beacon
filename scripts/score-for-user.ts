@@ -7,12 +7,12 @@
 import { createRequire } from 'node:module';
 const requireShim = createRequire(import.meta.url);
 const serverOnlyPath = requireShim.resolve('server-only');
-requireShim.cache[serverOnlyPath] = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(requireShim.cache as any)[serverOnlyPath] = {
   id: serverOnlyPath,
   filename: serverOnlyPath,
   loaded: true,
   exports: {},
-  // @ts-expect-error minimal cache entry shape
   paths: [],
   children: [],
 };

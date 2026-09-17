@@ -61,8 +61,8 @@ export default async function JaredPage({
     .gte('fit_scores.overall_score', 50)
     .limit(500);
 
-  let raw = (jobsRes.data ?? []) as unknown as Row[];
-  raw = raw
+  type ScoredRow = Row & { score: number; rationale: string | null };
+  const scored: ScoredRow[] = ((jobsRes.data ?? []) as unknown as Row[])
     .map((r) => ({
       ...r,
       score: r.fit_scores?.[0]?.overall_score ?? 0,
@@ -70,34 +70,29 @@ export default async function JaredPage({
     }))
     .sort((a, b) => b.score - a.score);
 
+  let raw = scored;
   if (tier === 'top') raw = raw.filter((r) => r.score >= 70);
   else if (tier === 'strong') raw = raw.filter((r) => r.score >= 60 && r.score < 70);
   else if (tier === 'look') raw = raw.filter((r) => r.score >= 50 && r.score < 60);
   if (company) raw = raw.filter((r) => r.companies?.name === company);
   if (remoteOnly) raw = raw.filter((r) => r.remote_ok === true);
 
-  const totalTop = (jobsRes.data ?? []).filter((r: any) => (r.fit_scores?.[0]?.overall_score ?? 0) >= 70).length;
-  const totalStrong = (jobsRes.data ?? []).filter((r: any) => {
-    const s = r.fit_scores?.[0]?.overall_score ?? 0;
-    return s >= 60 && s < 70;
-  }).length;
-  const totalLook = (jobsRes.data ?? []).filter((r: any) => {
-    const s = r.fit_scores?.[0]?.overall_score ?? 0;
-    return s >= 50 && s < 60;
-  }).length;
+  const totalTop = scored.filter((r) => r.score >= 70).length;
+  const totalStrong = scored.filter((r) => r.score >= 60 && r.score < 70).length;
+  const totalLook = scored.filter((r) => r.score >= 50 && r.score < 60).length;
 
   const uniqueCompanies = [
     ...new Set(raw.map((r) => r.companies?.name).filter(Boolean) as string[]),
   ].sort();
 
-  const linkFor = (next: Partial<SearchParams>) => {
+  const linkFor = (next: Record<string, string | undefined>) => {
     const sp = new URLSearchParams();
     if (tier) sp.set('tier', tier);
     if (company) sp.set('company', company);
     if (remoteOnly) sp.set('remote', '1');
     for (const [k, v] of Object.entries(next)) {
       if (!v) sp.delete(k);
-      else sp.set(k, String(v));
+      else sp.set(k, v);
     }
     const s = sp.toString();
     return s ? `/jared?${s}` : '/jared';
@@ -119,16 +114,16 @@ export default async function JaredPage({
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Link href={linkFor({ tier: tier === 'top' ? '' : 'top' })} className={chip(tier === 'top', 'bg-emerald-700 text-white')}>
+          <Link href={linkFor({ tier: tier === 'top' ? undefined : 'top' })} className={chip(tier === 'top', 'bg-emerald-700 text-white')}>
             ⭐ Top picks ({totalTop})
           </Link>
-          <Link href={linkFor({ tier: tier === 'strong' ? '' : 'strong' })} className={chip(tier === 'strong', 'bg-emerald-600 text-white')}>
+          <Link href={linkFor({ tier: tier === 'strong' ? undefined : 'strong' })} className={chip(tier === 'strong', 'bg-emerald-600 text-white')}>
             Strong matches ({totalStrong})
           </Link>
-          <Link href={linkFor({ tier: tier === 'look' ? '' : 'look' })} className={chip(tier === 'look', 'bg-amber-600 text-white')}>
+          <Link href={linkFor({ tier: tier === 'look' ? undefined : 'look' })} className={chip(tier === 'look', 'bg-amber-600 text-white')}>
             Worth a look ({totalLook})
           </Link>
-          <Link href={linkFor({ remote: remoteOnly ? '' : '1' })} className={chip(remoteOnly, 'bg-sky-600 text-white')}>
+          <Link href={linkFor({ remote: remoteOnly ? undefined : '1' })} className={chip(remoteOnly, 'bg-sky-600 text-white')}>
             🌍 Remote
           </Link>
           {(tier || company || remoteOnly) && (
@@ -179,7 +174,7 @@ export default async function JaredPage({
                 </td>
               </tr>
             )}
-            {raw.map((row: any) => {
+            {raw.map((row) => {
               const days = daysAgo(row.first_seen_at);
               const s = row.score as number;
               const badgeBg =
